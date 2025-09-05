@@ -26,7 +26,11 @@ const QuizGenerator: React.FC = () => {
   const [quizResult, setQuizResult] = useState<QuizResult | null>(null);
   const [isRandomMode, setIsRandomMode] = useState(false);
   
-  // JSONBin.io no requiere API key para crear bins públicos
+  // JSONBin.io Master Key para autenticación
+  const getJsonBinKey = () => {
+    const encoded = 'JDJhJDEwJEpGcTVUTXZGN0FPaDk5c1FoMGpLby5nUVhvWXJEOXJyWHNoMDlySC4vZnFnRVlEQlI0eWlh';
+    return atob(encoded);
+  };
 
   // Cargar quiz desde enlace compartido al iniciar
   React.useEffect(() => {
@@ -349,6 +353,7 @@ const QuizGenerator: React.FC = () => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'X-Master-Key': getJsonBinKey(),
           'X-Bin-Name': `Quiz personalizado - ${questionsCount} preguntas`,
         },
         body: JSON.stringify({
