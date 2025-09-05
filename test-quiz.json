@@ -1,0 +1,27 @@
+[
+  {
+    "question": "¿Cuál es la capital de Francia?",
+    "choices": ["París", "Madrid", "Berlín", "Roma"],
+    "answer": 0
+  },
+  {
+    "question": "La Tierra es el tercer planeta del sistema solar",
+    "choices": ["Verdadero", "Falso"],
+    "answer": 0
+  },
+  {
+    "question": "¿En qué año llegó el hombre a la Luna?",
+    "choices": ["1967", "1969", "1971", "1973"],
+    "answer": 1
+  },
+  {
+    "question": "El agua hierve a 100 grados Celsius a nivel del mar",
+    "choices": ["Verdadero", "Falso"],
+    "answer": 0
+  },
+  {
+    "question": "JavaScript es un lenguaje de programación tipado estáticamente",
+    "choices": ["Verdadero", "Falso"],
+    "answer": 1
+  }
+]

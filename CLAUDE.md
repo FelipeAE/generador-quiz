@@ -32,21 +32,31 @@ The application uses TypeScript types defined in `src/types/quiz.ts`:
 
 ### JSON Data Format
 
-The app expects quiz data in this specific JSON format:
+The app supports two types of questions:
+
+**Multiple Choice (4 options):**
 ```json
-[
-  {
-    "question": "Question text",
-    "choices": ["Option 1", "Option 2", "Option 3", "Option 4"],
-    "answer": 0
-  }
-]
+{
+  "question": "Question text",
+  "choices": ["Option 1", "Option 2", "Option 3", "Option 4"],
+  "answer": 0
+}
+```
+
+**True/False (2 options):**
+```json
+{
+  "question": "Statement to evaluate",
+  "choices": ["Verdadero", "Falso"],
+  "answer": 0
+}
 ```
 
 Key constraints:
 - Questions must be an array of objects
-- Each question requires exactly 4 choices
-- Answer field must be a number (0-3) indicating correct choice index
+- Each question requires exactly 2 choices (true/false) or 4 choices (multiple choice)
+- Answer field must be a number indicating correct choice index (0-based)
+- True/false questions get special styling with green/red color coding
 
 ### Application Flow
 

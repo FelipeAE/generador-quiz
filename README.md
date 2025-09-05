@@ -21,19 +21,29 @@ Una aplicación web para crear y realizar cuestionarios personalizados usando Re
 
 ## Formato del JSON
 
+Soporta dos tipos de preguntas:
+
+**Selección múltiple:**
 ```json
-[
-  {
-    "question": "¿Cuál es la capital de Francia?",
-    "choices": ["París", "Madrid", "Berlín", "Roma"],
-    "answer": 0
-  }
-]
+{
+  "question": "¿Cuál es la capital de Francia?",
+  "choices": ["París", "Madrid", "Berlín", "Roma"],
+  "answer": 0
+}
+```
+
+**Verdadero/Falso:**
+```json
+{
+  "question": "La Tierra es el tercer planeta del sistema solar",
+  "choices": ["Verdadero", "Falso"],
+  "answer": 0
+}
 ```
 
 - `question`: La pregunta (string)
-- `choices`: Array de 4 opciones (string[])
-- `answer`: Índice de la respuesta correcta (0-3)
+- `choices`: Array de 2 opciones (V/F) o 4 opciones (selección múltiple)
+- `answer`: Índice de la respuesta correcta (0 para primera opción, 1 para segunda, etc.)
 
 ## Desarrollo
 

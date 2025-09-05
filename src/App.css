@@ -253,6 +253,57 @@ h1 {
   font-weight: 600;
 }
 
+/* Estilos para preguntas verdadero/falso */
+.choices.true-false {
+  display: flex;
+  gap: 20px;
+  justify-content: center;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.choices.true-false .choice {
+  flex: 1;
+  text-align: center;
+  font-size: 1.2rem;
+  font-weight: 600;
+  padding: 25px 20px;
+}
+
+.choices.true-false .choice:first-child {
+  border-color: #10b981;
+  background: #ecfdf5;
+  color: #047857;
+}
+
+.choices.true-false .choice:first-child:hover {
+  border-color: #059669;
+  background: #d1fae5;
+}
+
+.choices.true-false .choice:first-child.selected {
+  border-color: #047857;
+  background: #a7f3d0;
+  color: #065f46;
+}
+
+.choices.true-false .choice:last-child {
+  border-color: #ef4444;
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+.choices.true-false .choice:last-child:hover {
+  border-color: #dc2626;
+  background: #fee2e2;
+}
+
+.choices.true-false .choice:last-child.selected {
+  border-color: #b91c1c;
+  background: #fecaca;
+  color: #991b1b;
+}
+
 .quiz-navigation {
   display: flex;
   justify-content: space-between;

@@ -35,6 +35,11 @@ const QuizGenerator: React.FC<QuizGeneratorProps> = () => {
     "answer": 0
   },
   {
+    "question": "La Tierra es el tercer planeta del sistema solar",
+    "choices": ["Verdadero", "Falso"],
+    "answer": 0
+  },
+  {
     "question": "¿Cuál es el resultado de 2 + 2?",
     "choices": ["3", "4", "5", "6"],
     "answer": 1
@@ -50,10 +55,15 @@ const QuizGenerator: React.FC<QuizGeneratorProps> = () => {
       }
 
       parsedData.forEach((question, index) => {
+        const isMultipleChoice = question.choices.length === 4;
+        const isTrueFalse = question.choices.length === 2;
+        const maxAnswer = question.choices.length - 1;
+        
         if (!question.question || !Array.isArray(question.choices) || 
-            question.choices.length !== 4 || typeof question.answer !== 'number' ||
-            question.answer < 0 || question.answer > 3) {
-          throw new Error(`Pregunta ${index + 1} tiene formato incorrecto`);
+            (!isMultipleChoice && !isTrueFalse) || 
+            typeof question.answer !== 'number' ||
+            question.answer < 0 || question.answer > maxAnswer) {
+          throw new Error(`Pregunta ${index + 1} debe tener 2 opciones (V/F) o 4 opciones (selección múltiple)`);
         }
       });
 
@@ -199,7 +209,7 @@ const QuizGenerator: React.FC<QuizGeneratorProps> = () => {
 
         <div className="question-container">
           <h2>{currentQuestion.question}</h2>
-          <div className="choices">
+          <div className={`choices ${currentQuestion.choices.length === 2 ? 'true-false' : ''}`}>
             {currentQuestion.choices.map((choice, index) => (
               <button
                 key={index}
@@ -284,13 +294,14 @@ const QuizGenerator: React.FC<QuizGeneratorProps> = () => {
       <div className="prompt-section">
         <h4>Prompt para IA:</h4>
         <div className="prompt-text">
-          <p>Analiza el siguiente contenido y genera una cantidad personalizada de preguntas de opción múltiple en formato JSON. Pregunta primero al usuario cuántas preguntas desea generar (mínimo 20). Luego, entrega exclusivamente el bloque JSON con las preguntas, siguiendo la estructura exacta que se indica abajo.</p>
+          <p>Analiza el siguiente contenido y genera una cantidad personalizada de preguntas en formato JSON. Puedes crear preguntas de opción múltiple (4 alternativas) o verdadero/falso (2 alternativas). Pregunta primero al usuario cuántas preguntas desea generar (mínimo 20). Luego, entrega exclusivamente el bloque JSON con las preguntas, siguiendo la estructura exacta que se indica abajo.</p>
           <p><strong>Estructura esperada:</strong></p>
           <pre>{exampleJson}</pre>
           <p><strong>Reglas:</strong></p>
           <ul>
-            <li>Cada pregunta debe tener exactamente 4 alternativas (campo "choices").</li>
-            <li>El índice correcto va en el campo "answer" (de 0 a 3).</li>
+            <li>Preguntas de opción múltiple: exactamente 4 alternativas (campo "choices").</li>
+            <li>Preguntas verdadero/falso: exactamente 2 alternativas ["Verdadero", "Falso"].</li>
+            <li>El índice correcto va en el campo "answer" (0 para primera opción, 1 para segunda, etc.).</li>
             <li>No incluyas explicaciones, encabezados ni texto adicional fuera del JSON.</li>
             <li>El JSON debe estar bien formado para ser leído por una aplicación externa.</li>
             <li>La cantidad de preguntas debe ser la que indique el usuario (mínimo 20).</li>
@@ -298,7 +309,7 @@ const QuizGenerator: React.FC<QuizGeneratorProps> = () => {
           </ul>
           <p><strong>Idioma del cuestionario:</strong> El mismo del contenido entregado, o en español si no se especifica otro.</p>
         </div>
-        <button onClick={() => navigator.clipboard.writeText("Analiza el siguiente contenido y genera una cantidad personalizada de preguntas de opción múltiple en formato JSON. Pregunta primero al usuario cuántas preguntas desea generar (mínimo 20). Luego, entrega exclusivamente el bloque JSON con las preguntas, siguiendo la estructura exacta que se indica abajo.\n\nEstructura esperada:\n[\n  {\n    \"question\": \"¿Cuál es la capital de Francia?\",\n    \"choices\": [\"París\", \"Madrid\", \"Berlín\", \"Roma\"],\n    \"answer\": 0\n  },\n  {\n    \"question\": \"¿Cuál es el resultado de 2 + 2?\",\n    \"choices\": [\"3\", \"4\", \"5\", \"6\"],\n    \"answer\": 1\n  }\n]\n\nReglas:\n- Cada pregunta debe tener exactamente 4 alternativas (campo \"choices\").\n- El índice correcto va en el campo \"answer\" (de 0 a 3).\n- No incluyas explicaciones, encabezados ni texto adicional fuera del JSON.\n- El JSON debe estar bien formado para ser leído por una aplicación externa.\n- La cantidad de preguntas debe ser la que indique el usuario (mínimo 20).\n- El contenido debe estar basado en el texto que te entregó el usuario.\n\nIdioma del cuestionario: El mismo del contenido entregado, o en español si no se especifica otro.")} className="btn-copy">
+        <button onClick={() => navigator.clipboard.writeText(`Analiza el siguiente contenido y genera una cantidad personalizada de preguntas en formato JSON. Puedes crear preguntas de opción múltiple (4 alternativas) o verdadero/falso (2 alternativas). Pregunta primero al usuario cuántas preguntas desea generar (mínimo 20). Luego, entrega exclusivamente el bloque JSON con las preguntas, siguiendo la estructura exacta que se indica abajo.\n\nEstructura esperada:\n${exampleJson}\n\nReglas:\n- Preguntas de opción múltiple: exactamente 4 alternativas (campo "choices").\n- Preguntas verdadero/falso: exactamente 2 alternativas ["Verdadero", "Falso"].\n- El índice correcto va en el campo "answer" (0 para primera opción, 1 para segunda, etc.).\n- No incluyas explicaciones, encabezados ni texto adicional fuera del JSON.\n- El JSON debe estar bien formado para ser leído por una aplicación externa.\n- La cantidad de preguntas debe ser la que indique el usuario (mínimo 20).\n- El contenido debe estar basado en el texto que te entregó el usuario.\n\nIdioma del cuestionario: El mismo del contenido entregado, o en español si no se especifica otro.`)} className="btn-copy">
           🗂 Copiar con Prompt para IA
         </button>
       </div>
