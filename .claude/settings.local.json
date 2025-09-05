@@ -12,7 +12,8 @@
       "Read(//c/Users/fiae/.ssh/**)",
       "Bash(ssh-keygen:*)",
       "Bash(ssh-add:*)",
-      "Bash(ssh:*)"
+      "Bash(ssh:*)",
+      "Bash(node:*)"
     ],
     "deny": [],
     "ask": []

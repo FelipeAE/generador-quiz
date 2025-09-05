@@ -311,6 +311,13 @@ h1 {
   margin: 40px 0 20px 0;
 }
 
+.quiz-actions {
+  display: flex;
+  gap: 15px;
+  justify-content: center;
+  margin-top: 20px;
+}
+
 .btn-primary {
   background: #6366f1;
   color: white;

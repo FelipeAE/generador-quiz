@@ -28,6 +28,23 @@ const QuizGenerator: React.FC<QuizGeneratorProps> = () => {
   const [quizResult, setQuizResult] = useState<QuizResult | null>(null);
   const [isRandomMode, setIsRandomMode] = useState(false);
 
+  // Cargar quiz desde URL al iniciar
+  React.useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const quizParam = urlParams.get('quiz');
+    if (quizParam) {
+      try {
+        const decodedJson = atob(quizParam);
+        const parsedData = JSON.parse(decodedJson);
+        setJsonInput(JSON.stringify(parsedData, null, 2));
+        // Auto-generar el quiz
+        generateQuizFromData(parsedData);
+      } catch (error) {
+        alert('Error al cargar el quiz compartido: URL inválida');
+      }
+    }
+  }, []);
+
   const exampleJson = `[
   {
     "question": "¿Cuál es la capital de Francia?",
@@ -46,37 +63,40 @@ const QuizGenerator: React.FC<QuizGeneratorProps> = () => {
   }
 ]`;
 
+  const generateQuizFromData = (parsedData: QuizQuestion[]) => {
+    if (!Array.isArray(parsedData)) {
+      throw new Error('El JSON debe ser un array de preguntas');
+    }
+
+    parsedData.forEach((question, index) => {
+      const isMultipleChoice = question.choices.length === 4;
+      const isTrueFalse = question.choices.length === 2;
+      const maxAnswer = question.choices.length - 1;
+      
+      if (!question.question || !Array.isArray(question.choices) || 
+          (!isMultipleChoice && !isTrueFalse) || 
+          typeof question.answer !== 'number' ||
+          question.answer < 0 || question.answer > maxAnswer) {
+        throw new Error(`Pregunta ${index + 1} debe tener 2 opciones (V/F) o 4 opciones (selección múltiple)`);
+      }
+    });
+
+    let questions = parsedData;
+    if (isRandomMode) {
+      questions = [...parsedData].sort(() => Math.random() - 0.5);
+    }
+
+    setQuizData({ questions });
+    setUserAnswers(new Array(questions.length).fill(null));
+    setCurrentQuestionIndex(0);
+    setShowResults(false);
+    setQuizResult(null);
+  };
+
   const generateQuiz = () => {
     try {
       const parsedData: QuizQuestion[] = JSON.parse(jsonInput);
-      
-      if (!Array.isArray(parsedData)) {
-        throw new Error('El JSON debe ser un array de preguntas');
-      }
-
-      parsedData.forEach((question, index) => {
-        const isMultipleChoice = question.choices.length === 4;
-        const isTrueFalse = question.choices.length === 2;
-        const maxAnswer = question.choices.length - 1;
-        
-        if (!question.question || !Array.isArray(question.choices) || 
-            (!isMultipleChoice && !isTrueFalse) || 
-            typeof question.answer !== 'number' ||
-            question.answer < 0 || question.answer > maxAnswer) {
-          throw new Error(`Pregunta ${index + 1} debe tener 2 opciones (V/F) o 4 opciones (selección múltiple)`);
-        }
-      });
-
-      let questions = parsedData;
-      if (isRandomMode) {
-        questions = [...parsedData].sort(() => Math.random() - 0.5);
-      }
-
-      setQuizData({ questions });
-      setUserAnswers(new Array(questions.length).fill(null));
-      setCurrentQuestionIndex(0);
-      setShowResults(false);
-      setQuizResult(null);
+      generateQuizFromData(parsedData);
     } catch (error) {
       alert(`Error al procesar el JSON: ${(error as Error).message}`);
     }
@@ -153,6 +173,46 @@ const QuizGenerator: React.FC<QuizGeneratorProps> = () => {
     document.body.appendChild(downloadAnchorNode);
     downloadAnchorNode.click();
     downloadAnchorNode.remove();
+  };
+
+  const shareQuiz = () => {
+    if (!quizData) return;
+    
+    const jsonString = JSON.stringify(quizData.questions);
+    const base64Encoded = btoa(jsonString);
+    const shareUrl = `${window.location.origin}${window.location.pathname}?quiz=${base64Encoded}`;
+    
+    // Calcular tamaño de URL
+    const urlSize = shareUrl.length;
+    const questionsCount = quizData.questions.length;
+    
+    if (urlSize > 8000) {
+      // URL muy larga - mostrar alternativa
+      if (confirm(
+        `⚠️ Este quiz tiene ${questionsCount} preguntas y genera una URL muy larga (${urlSize} caracteres).\n\n` +
+        `Esto puede causar problemas al compartir en redes sociales.\n\n` +
+        `¿Prefieres copiar el JSON directamente en su lugar?`
+      )) {
+        navigator.clipboard.writeText(jsonString).then(() => {
+          alert('📋 JSON copiado al portapapeles. Pégalo en la aplicación para usar el quiz.');
+        });
+        return;
+      }
+    }
+    
+    // Copiar URL al portapapeles
+    navigator.clipboard.writeText(shareUrl).then(() => {
+      let message = `🔗 URL del quiz copiada al portapapeles!\n\n`;
+      if (urlSize > 2000) {
+        message += `⚠️ Nota: La URL es larga (${urlSize} caracteres). Puede que no funcione bien en WhatsApp u otras redes sociales.`;
+      } else {
+        message += `✅ URL compacta (${urlSize} caracteres) - perfecta para compartir.`;
+      }
+      alert(message);
+    }).catch(() => {
+      // Fallback si no se puede copiar
+      prompt('🔗 Copia esta URL para compartir el quiz:', shareUrl);
+    });
   };
 
   if (showResults && quizResult && quizData) {
@@ -242,9 +302,14 @@ const QuizGenerator: React.FC<QuizGeneratorProps> = () => {
           )}
         </div>
 
-        <button onClick={resetQuiz} className="btn-danger">
-          🗑️ Eliminar Quiz
-        </button>
+        <div className="quiz-actions">
+          <button onClick={shareQuiz} className="btn-secondary">
+            🔗 Compartir Quiz
+          </button>
+          <button onClick={resetQuiz} className="btn-danger">
+            🗑️ Eliminar Quiz
+          </button>
+        </div>
       </div>
     );
   }
