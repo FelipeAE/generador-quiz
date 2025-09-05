@@ -17,9 +17,7 @@ type QuizResult = {
   answers: (number | null)[];
 };
 
-interface QuizGeneratorProps {}
-
-const QuizGenerator: React.FC<QuizGeneratorProps> = () => {
+const QuizGenerator: React.FC = () => {
   const [jsonInput, setJsonInput] = useState('');
   const [quizData, setQuizData] = useState<QuizData | null>(null);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
