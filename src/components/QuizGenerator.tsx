@@ -26,23 +26,22 @@ const QuizGenerator: React.FC = () => {
   const [quizResult, setQuizResult] = useState<QuizResult | null>(null);
   const [isRandomMode, setIsRandomMode] = useState(false);
   
-  // JSONBin.io Master Key para autenticación (dividida para evitar detección)
-  const getJsonBinKey = () => {
-    const parts = ['JDJh', 'JDEw', 'JEpG', 'cTVU', 'TXZG', 'N0FP', 'aDk5', 'c1Fo', 'MGpL', 'by5n', 'UVhv', 'WXJE', 'OXJy', 'WHNo', 'MDly', 'SC4v', 'ZnFn', 'RVNE', 'QlI0', 'eWlh'];
-    return atob(parts.join(''));
-  };
+  // Pastebin no requiere autenticación para crear pastes públicos
 
   // Cargar quiz desde enlace compartido al iniciar
   React.useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const gistId = urlParams.get('gist');
     const binId = urlParams.get('bin');
+    const pasteId = urlParams.get('paste');
     const hash = window.location.hash;
     
     if (gistId) {
       loadQuizFromGist(gistId);
     } else if (binId) {
       loadQuizFromBin(binId);
+    } else if (pasteId) {
+      loadQuizFromPastebin(pasteId);
     } else if (hash.includes('#quiz=')) {
       loadQuizFromHash();
     }
@@ -114,6 +113,38 @@ const QuizGenerator: React.FC = () => {
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : 'Error al cargar el quiz';
       alert(`❌ Error al cargar el quiz compartido: ${errorMsg}\n\n💡 Verifica que el enlace sea correcto y que tengas conexión a internet.`);
+      
+      // Limpiar URL
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  };
+
+  const loadQuizFromPastebin = async (pasteId: string) => {
+    try {
+      // Obtener contenido raw de Pastebin
+      const response = await fetch(`https://pastebin.com/raw/${pasteId}`);
+      
+      if (!response.ok) {
+        throw new Error(`Error HTTP: ${response.status}`);
+      }
+      
+      const rawContent = await response.text();
+      const parsedData = JSON.parse(rawContent);
+      
+      if (!Array.isArray(parsedData) || parsedData.length === 0) {
+        throw new Error('El quiz debe contener al menos una pregunta');
+      }
+      
+      setJsonInput(JSON.stringify(parsedData, null, 2));
+      // Auto-generar el quiz
+      generateQuizFromData(parsedData);
+      
+      // Limpiar URL
+      window.history.replaceState({}, document.title, window.location.pathname);
+      
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Error al cargar el quiz';
+      alert(`❌ Error al cargar el quiz desde Pastebin: ${errorMsg}\n\n💡 Verifica que el enlace sea correcto y que tengas conexión a internet.`);
       
       // Limpiar URL
       window.history.replaceState({}, document.title, window.location.pathname);
@@ -348,49 +379,49 @@ const QuizGenerator: React.FC = () => {
         button.disabled = true;
       }
       
-      // Crear bin en JSONBin.io
-      const masterKey = getJsonBinKey();
-      console.log('Master key length:', masterKey.length); // Debug
-      const response = await fetch('https://api.jsonbin.io/v3/b', {
+      // Crear paste en Pastebin
+      const jsonContent = JSON.stringify(quizData.questions, null, 2);
+      const formData = new FormData();
+      formData.append('api_paste_code', jsonContent);
+      formData.append('api_paste_name', `Quiz personalizado - ${questionsCount} preguntas`);
+      formData.append('api_paste_expire_date', '1M'); // Expira en 1 mes
+      formData.append('api_paste_format', 'json');
+      formData.append('api_option', 'paste');
+      
+      const response = await fetch('https://pastebin.com/api/api_post.php', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Master-Key': masterKey,
-          'X-Bin-Name': `Quiz personalizado - ${questionsCount} preguntas`,
-        },
-        body: JSON.stringify({
-          quiz: quizData.questions,
-          metadata: {
-            title: `Quiz personalizado`,
-            questions: questionsCount,
-            created: new Date().toISOString()
-          }
-        })
+        body: formData
       });
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(`Error HTTP: ${response.status} - ${errorData.message || 'Error al subir quiz'}`);
+        throw new Error(`Error HTTP: ${response.status}`);
       }
 
-      const result = await response.json();
-      const binId = result.metadata.id;
-      const shareUrl = `${window.location.origin}${window.location.pathname}?bin=${binId}`;
+      const pasteUrl = await response.text();
+      
+      // Verificar que es una URL válida de Pastebin
+      if (!pasteUrl.startsWith('https://pastebin.com/')) {
+        throw new Error(`Error de Pastebin: ${pasteUrl}`);
+      }
+      
+      // Extraer el ID del paste
+      const pasteId = pasteUrl.split('/').pop();
+      const shareUrl = `${window.location.origin}${window.location.pathname}?paste=${pasteId}`;
       
       // Copiar URL al portapapeles
       await navigator.clipboard.writeText(shareUrl);
       
       alert(
-        `🔗 Quiz subido y URL copiada! (${questionsCount} preguntas)\n\n` +
+        `🔗 Quiz subido a Pastebin y URL copiada! (${questionsCount} preguntas)\n\n` +
         `✅ URL corta y confiable\n` +
-        `✅ Funciona sin límites de tamaño\n` +
-        `✅ Almacenado online de forma gratuita\n\n` +
+        `✅ Sin límites de tamaño\n` +
+        `✅ Expira en 1 mes automáticamente\n\n` +
         `💡 Solo pega el enlace y la otra persona podrá acceder directamente al quiz.\n\n` +
-        `🆔 Bin ID: ${binId}`
+        `🆔 Paste ID: ${pasteId}`
       );
       
     } catch (error) {
-      console.error('Error al crear bin:', error);
+      console.error('Error al crear paste:', error);
       const errorMsg = error instanceof Error ? error.message : 'Error desconocido';
       
       alert(
