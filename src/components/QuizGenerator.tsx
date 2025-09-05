@@ -26,7 +26,55 @@ const QuizGenerator: React.FC = () => {
   const [quizResult, setQuizResult] = useState<QuizResult | null>(null);
   const [isRandomMode, setIsRandomMode] = useState(false);
   
-  // Sistema de URLs con hash - funciona siempre, sin APIs externas
+  // Sistema de URLs con hash + compresión LZ - funciona siempre, sin APIs externas
+  
+  // Compresión LZ simple para URLs más cortas
+  const compressString = (str: string): string => {
+    const dict: { [key: string]: number } = {};
+    const data = (str + "").split("");
+    const result = [];
+    let currChar = data[0];
+    let phrase = currChar;
+    let code = 256;
+    
+    for (let i = 1; i < data.length; i++) {
+      currChar = data[i];
+      if (dict[phrase + currChar] !== undefined) {
+        phrase += currChar;
+      } else {
+        result.push(phrase.length > 1 ? dict[phrase] : phrase.charCodeAt(0));
+        dict[phrase + currChar] = code;
+        code++;
+        phrase = currChar;
+      }
+    }
+    result.push(phrase.length > 1 ? dict[phrase] : phrase.charCodeAt(0));
+    
+    // Convertir a string compacto
+    return result.map(code => String.fromCharCode(code)).join('');
+  };
+
+  const decompressString = (compressed: string): string => {
+    const dict: { [key: number]: string } = {};
+    const data = compressed.split("").map(c => c.charCodeAt(0));
+    let currChar = String.fromCharCode(data[0]);
+    let oldPhrase = currChar;
+    const result = [currChar];
+    let code = 256;
+    
+    for (let i = 1; i < data.length; i++) {
+      const currCode = data[i];
+      let phrase = dict[currCode] || (currCode === code ? oldPhrase + currChar : String.fromCharCode(currCode));
+      
+      result.push(phrase);
+      currChar = phrase.charAt(0);
+      dict[code] = oldPhrase + currChar;
+      code++;
+      oldPhrase = phrase;
+    }
+    
+    return result.join("");
+  };
 
   // Cargar quiz desde enlace compartido al iniciar
   React.useEffect(() => {
@@ -128,10 +176,19 @@ const QuizGenerator: React.FC = () => {
       
       const compressed = quizMatch[1];
       
-      // Descomprimir el Base64
+      // Descomprimir: Base64 → LZ → JSON
       const restored = compressed.replace(/-/g, '+').replace(/_/g, '/');
       const padding = '='.repeat((4 - restored.length % 4) % 4);
-      const jsonString = atob(restored + padding);
+      let jsonString: string;
+      
+      try {
+        // Intentar descompresión LZ primero (nuevo formato)
+        const base64Decoded = atob(restored + padding);
+        jsonString = decompressString(base64Decoded);
+      } catch {
+        // Fallback al formato anterior (solo Base64)
+        jsonString = atob(restored + padding);
+      }
       
       const parsedData = JSON.parse(jsonString);
       
@@ -345,22 +402,28 @@ const QuizGenerator: React.FC = () => {
         button.disabled = true;
       }
       
-      // Comprimir JSON usando Base64 mejorado
+      // Comprimir JSON usando LZ + Base64
       const jsonString = JSON.stringify(quizData.questions);
       
-      // Usar compresión simple con Base64 URL-safe
-      const compressed = btoa(jsonString)
+      // Aplicar compresión LZ primero, luego Base64 URL-safe
+      const lzCompressed = compressString(jsonString);
+      const base64Compressed = btoa(lzCompressed)
         .replace(/\+/g, '-')
         .replace(/\//g, '_')
         .replace(/=/g, '');
       
-      const shareUrl = `${window.location.origin}${window.location.pathname}#quiz=${compressed}`;
+      console.log(`Compresión: ${jsonString.length} → ${lzCompressed.length} → ${base64Compressed.length} chars`);
+      
+      const shareUrl = `${window.location.origin}${window.location.pathname}#quiz=${base64Compressed}`;
       
       // Copiar URL al portapapeles
       await navigator.clipboard.writeText(shareUrl);
       
-      // Calcular tamaño aproximado de la URL
+      // Calcular tamaño y estadísticas de compresión
       const urlLength = shareUrl.length;
+      const originalSize = jsonString.length;
+      const compressedSize = base64Compressed.length;
+      const compressionRatio = Math.round((1 - compressedSize / originalSize) * 100);
       const sizeWarning = urlLength > 2000 ? '\n⚠️ URL larga - puede tener problemas en algunos servicios de mensajería' : '';
       
       alert(
@@ -368,7 +431,8 @@ const QuizGenerator: React.FC = () => {
         `✅ Funciona inmediatamente sin servidor\n` +
         `✅ Sin límites ni expiración\n` +
         `✅ Completamente offline\n` +
-        `📏 Tamaño: ${urlLength} caracteres${sizeWarning}\n\n` +
+        `📏 Tamaño: ${urlLength} caracteres\n` +
+        `🗜️ Compresión LZ: ${compressionRatio}% reducción${sizeWarning}\n\n` +
         `💡 Solo pega el enlace y la otra persona podrá acceder directamente al quiz.`
       );
       
