@@ -313,9 +313,17 @@ h1 {
 
 .quiz-actions {
   display: flex;
-  gap: 15px;
+  gap: 12px;
   justify-content: center;
   margin-top: 20px;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 600px) {
+  .quiz-actions {
+    flex-direction: column;
+    gap: 10px;
+  }
 }
 
 .btn-primary {

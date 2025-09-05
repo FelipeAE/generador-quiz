@@ -28,6 +28,51 @@ const QuizGenerator: React.FC<QuizGeneratorProps> = () => {
   const [quizResult, setQuizResult] = useState<QuizResult | null>(null);
   const [isRandomMode, setIsRandomMode] = useState(false);
 
+  // Cargar quiz desde gist al iniciar
+  React.useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const gistId = urlParams.get('gist');
+    if (gistId) {
+      loadQuizFromGist(gistId);
+    }
+  }, []);
+
+  const loadQuizFromGist = async (gistId: string) => {
+    try {
+      const response = await fetch(`https://api.github.com/gists/${gistId}`);
+      
+      if (!response.ok) {
+        throw new Error(`Error HTTP: ${response.status}`);
+      }
+      
+      const gist = await response.json();
+      const quizFile = gist.files['quiz.json'];
+      
+      if (!quizFile) {
+        throw new Error('No se encontró el archivo quiz.json en el enlace');
+      }
+      
+      const parsedData = JSON.parse(quizFile.content);
+      
+      if (!Array.isArray(parsedData) || parsedData.length === 0) {
+        throw new Error('El quiz debe contener al menos una pregunta');
+      }
+      
+      setJsonInput(JSON.stringify(parsedData, null, 2));
+      // Auto-generar el quiz
+      generateQuizFromData(parsedData);
+      
+      // Limpiar URL
+      window.history.replaceState({}, document.title, window.location.pathname);
+      
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Error al cargar el quiz';
+      alert(`❌ Error al cargar el quiz compartido: ${errorMsg}\n\n💡 Verifica que el enlace sea correcto y que tengas conexión a internet.`);
+      
+      // Limpiar URL
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  };
 
   const exampleJson = `[
   {
@@ -203,6 +248,76 @@ const QuizGenerator: React.FC<QuizGeneratorProps> = () => {
     });
   };
 
+  const shareQuizOnline = async () => {
+    if (!quizData) return;
+    
+    const jsonString = JSON.stringify(quizData.questions, null, 2);
+    const questionsCount = quizData.questions.length;
+    
+    // Obtener referencia del botón
+    const button = document.querySelector('.btn-share-online') as HTMLButtonElement;
+    const originalText = button?.textContent || '🔗 Compartir Online';
+    
+    try {
+      // Mostrar indicador de carga
+      if (button) {
+        button.textContent = '⏳ Subiendo...';
+        button.disabled = true;
+      }
+      
+      // Crear gist
+      const gistData = {
+        description: `Quiz personalizado - ${questionsCount} preguntas`,
+        public: true,
+        files: {
+          'quiz.json': {
+            content: jsonString
+          }
+        }
+      };
+      
+      const response = await fetch('https://api.github.com/gists', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(gistData)
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Error HTTP: ${response.status}`);
+      }
+      
+      const gist = await response.json();
+      const shareUrl = `${window.location.origin}${window.location.pathname}?gist=${gist.id}`;
+      
+      // Copiar URL al portapapeles
+      await navigator.clipboard.writeText(shareUrl);
+      
+      alert(
+        `🔗 URL de quiz creada y copiada! (${questionsCount} preguntas)\n\n` +
+        `✅ URL corta y permanente\n` +
+        `✅ Funciona en todas las redes sociales\n` +
+        `✅ No expira nunca\n\n` +
+        `💡 Solo pega el enlace y la otra persona podrá acceder directamente al quiz.`
+      );
+      
+    } catch (error) {
+      console.error('Error al crear gist:', error);
+      alert(
+        `❌ Error al crear el enlace online\n\n` +
+        `Usa el botón "📋 Copiar JSON" como alternativa.\n` +
+        `(Posible problema de conectividad o límites de GitHub)`
+      );
+    } finally {
+      // Restaurar botón
+      if (button) {
+        button.textContent = originalText;
+        button.disabled = false;
+      }
+    }
+  };
+
   if (showResults && quizResult && quizData) {
     return (
       <div className="quiz-container">
@@ -291,8 +406,11 @@ const QuizGenerator: React.FC<QuizGeneratorProps> = () => {
         </div>
 
         <div className="quiz-actions">
+          <button onClick={shareQuizOnline} className="btn-primary btn-share-online">
+            🔗 Compartir Online
+          </button>
           <button onClick={shareQuiz} className="btn-secondary">
-            📋 Copiar Quiz
+            📋 Copiar JSON
           </button>
           <button onClick={resetQuiz} className="btn-danger">
             🗑️ Eliminar Quiz
