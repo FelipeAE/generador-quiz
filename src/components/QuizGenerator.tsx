@@ -28,42 +28,6 @@ const QuizGenerator: React.FC<QuizGeneratorProps> = () => {
   const [quizResult, setQuizResult] = useState<QuizResult | null>(null);
   const [isRandomMode, setIsRandomMode] = useState(false);
 
-  // Cargar quiz desde URL al iniciar
-  React.useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const quizParam = urlParams.get('quiz');
-    if (quizParam) {
-      try {
-        if (quizParam.length > 10000) {
-          alert('⚠️ URL demasiado larga. Es posible que el quiz no se cargue correctamente.');
-        }
-        
-        const decodedJson = atob(quizParam);
-        
-        // Verificar que el JSON sea válido antes de parsear
-        if (!decodedJson.trim().startsWith('[') || !decodedJson.trim().endsWith(']')) {
-          throw new Error('Formato de quiz inválido');
-        }
-        
-        const parsedData = JSON.parse(decodedJson);
-        
-        if (!Array.isArray(parsedData) || parsedData.length === 0) {
-          throw new Error('El quiz debe contener al menos una pregunta');
-        }
-        
-        setJsonInput(JSON.stringify(parsedData, null, 2));
-        // Auto-generar el quiz
-        generateQuizFromData(parsedData);
-        
-      } catch (error) {
-        const errorMsg = error instanceof Error ? error.message : 'URL inválida';
-        alert(`❌ Error al cargar el quiz compartido: ${errorMsg}\n\n💡 Verifica que el enlace esté completo y no esté cortado.`);
-        
-        // Limpiar la URL para evitar bucles de error
-        window.history.replaceState({}, document.title, window.location.pathname);
-      }
-    }
-  }, []);
 
   const exampleJson = `[
   {
@@ -220,59 +184,22 @@ const QuizGenerator: React.FC<QuizGeneratorProps> = () => {
   const shareQuiz = () => {
     if (!quizData) return;
     
-    const jsonString = JSON.stringify(quizData.questions);
-    const base64Encoded = btoa(jsonString);
-    const shareUrl = `${window.location.origin}${window.location.pathname}?quiz=${base64Encoded}`;
-    
-    // Calcular tamaño de URL
-    const urlSize = shareUrl.length;
+    const jsonString = JSON.stringify(quizData.questions, null, 2);
     const questionsCount = quizData.questions.length;
     
-    // Límites más estrictos
-    if (urlSize > 6000) {
-      // URL muy larga - forzar alternativa
-      const useAlternative = confirm(
-        `❌ Quiz demasiado grande para compartir por URL\n\n` +
-        `• ${questionsCount} preguntas = ${urlSize} caracteres\n` +
-        `• Límite recomendado: 6000 caracteres\n\n` +
-        `📋 ¿Copiar el JSON para compartir manualmente?\n` +
-        `(La otra persona puede pegarlo directamente en la aplicación)`
+    // Copiar JSON al portapapeles
+    navigator.clipboard.writeText(jsonString).then(() => {
+      alert(
+        `📋 Quiz copiado al portapapeles! (${questionsCount} preguntas)\n\n` +
+        `💡 Para compartir:\n` +
+        `1. Pega este texto donde quieras (WhatsApp, email, etc.)\n` +
+        `2. La otra persona lo copia y pega en el campo de texto\n` +
+        `3. Hace clic en "Generar Cuestionario"\n\n` +
+        `✅ Funciona siempre, sin límites de tamaño.`
       );
-      
-      if (useAlternative) {
-        navigator.clipboard.writeText(jsonString).then(() => {
-          alert('📋 JSON copiado al portapapeles!\n\n💡 Instrucciones:\n1. Comparte este texto con la otra persona\n2. Que lo pegue en el campo de texto de la aplicación\n3. Que haga clic en "Generar Cuestionario"');
-        }).catch(() => {
-          prompt('📋 Copia este JSON para compartir:', jsonString);
-        });
-      }
-      return;
-    }
-    
-    // Límite de advertencia
-    if (urlSize > 3000) {
-      const proceed = confirm(
-        `⚠️ URL larga detectada\n\n` +
-        `• ${questionsCount} preguntas = ${urlSize} caracteres\n` +
-        `• Puede no funcionar en WhatsApp/redes sociales\n\n` +
-        `¿Continuar con la URL larga?`
-      );
-      
-      if (!proceed) return;
-    }
-    
-    // Copiar URL al portapapeles
-    navigator.clipboard.writeText(shareUrl).then(() => {
-      let message = `🔗 URL del quiz copiada al portapapeles!\n\n`;
-      if (urlSize > 3000) {
-        message += `⚠️ URL larga (${urlSize} caracteres). Puede fallar en algunas apps.`;
-      } else {
-        message += `✅ URL compacta (${urlSize} caracteres) - perfecta para compartir.`;
-      }
-      alert(message);
     }).catch(() => {
       // Fallback si no se puede copiar
-      prompt('🔗 Copia esta URL para compartir el quiz:', shareUrl);
+      prompt('📋 Copia este JSON para compartir:', jsonString);
     });
   };
 
@@ -365,7 +292,7 @@ const QuizGenerator: React.FC<QuizGeneratorProps> = () => {
 
         <div className="quiz-actions">
           <button onClick={shareQuiz} className="btn-secondary">
-            🔗 Compartir Quiz
+            📋 Copiar Quiz
           </button>
           <button onClick={resetQuiz} className="btn-danger">
             🗑️ Eliminar Quiz
