@@ -151,28 +151,50 @@ const QuizGenerator: React.FC<QuizGeneratorProps> = () => {
     setJsonInput('');
   };
 
-  const downloadResults = () => {
+  const shareResults = () => {
     if (!quizResult || !quizData) return;
 
-    const results = {
-      score: quizResult.score,
-      total: quizResult.total,
-      percentage: quizResult.percentage,
-      questions: quizData.questions.map((q, i) => ({
+    // Generar resumen de resultados para compartir
+    const emoji = quizResult.percentage >= 70 ? '🎉' : '📚';
+    const status = quizResult.percentage >= 70 ? '¡Aprobado!' : 'Necesito estudiar más';
+    
+    let shareText = `${emoji} Resultados del Quiz ${emoji}\n\n`;
+    shareText += `📊 Puntuación: ${quizResult.score}/${quizResult.total} (${quizResult.percentage}%)\n`;
+    shareText += `${status}\n\n`;
+    
+    // Agregar algunas respuestas incorrectas para contexto (máximo 3)
+    const incorrectAnswers = quizData.questions
+      .map((q, i) => ({
         question: q.question,
-        correctAnswer: q.choices[q.answer],
+        correct: q.choices[q.answer],
         userAnswer: userAnswers[i] !== null ? q.choices[userAnswers[i] as number] : 'Sin responder',
-        correct: userAnswers[i] !== null && userAnswers[i] === q.answer
+        wasCorrect: userAnswers[i] !== null && userAnswers[i] === q.answer
       }))
-    };
-
-    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(results, null, 2));
-    const downloadAnchorNode = document.createElement('a');
-    downloadAnchorNode.setAttribute("href", dataStr);
-    downloadAnchorNode.setAttribute("download", "quiz-results.json");
-    document.body.appendChild(downloadAnchorNode);
-    downloadAnchorNode.click();
-    downloadAnchorNode.remove();
+      .filter(q => !q.wasCorrect)
+      .slice(0, 3);
+    
+    if (incorrectAnswers.length > 0) {
+      shareText += `❌ Respuestas a repasar:\n\n`;
+      incorrectAnswers.forEach((q, index) => {
+        shareText += `${index + 1}. ${q.question}\n`;
+        shareText += `   ✅ Correcta: ${q.correct}\n`;
+        shareText += `   ❌ Mi respuesta: ${q.userAnswer}\n\n`;
+      });
+      
+      if (quizData.questions.length - quizResult.score > 3) {
+        shareText += `... y ${quizData.questions.length - quizResult.score - 3} más\n\n`;
+      }
+    }
+    
+    shareText += `📝 Quiz generado con el Generador de Quiz Personalizado`;
+    
+    // Copiar al portapapeles
+    navigator.clipboard.writeText(shareText).then(() => {
+      alert(`📱 Resultados copiados al portapapeles!\n\nPuedes pegarlos en WhatsApp, redes sociales, o donde quieras compartir tu progreso.`);
+    }).catch(() => {
+      // Fallback si no se puede copiar
+      prompt('📱 Copia este texto para compartir tus resultados:', shareText);
+    });
   };
 
   const shareQuiz = () => {
@@ -242,8 +264,8 @@ const QuizGenerator: React.FC<QuizGeneratorProps> = () => {
         </div>
 
         <div className="results-actions">
-          <button onClick={downloadResults} className="btn-download">
-            📥 Descargar Resultados
+          <button onClick={shareResults} className="btn-secondary">
+            📱 Compartir Resultados
           </button>
           <button onClick={resetQuiz} className="btn-primary">
             🔄 Nuevo Quiz
