@@ -26,12 +26,7 @@ const QuizGenerator: React.FC = () => {
   const [quizResult, setQuizResult] = useState<QuizResult | null>(null);
   const [isRandomMode, setIsRandomMode] = useState(false);
   
-  // API credentials for service integration
-  const getApiKey = () => {
-    const parts = ['Z2hw', 'X1VL', 'MVJNaGE3', 'SGRhdGtL', 'dlRYcFdV', 'MDBRcDhq', 'cFR6bTBi', 'TE9Tcw=='];
-    return atob(parts.join(''));
-  };
-  const githubToken = getApiKey();
+  // JSONBin.io no requiere API key para crear bins públicos
 
   // Cargar quiz desde enlace compartido al iniciar
   React.useEffect(() => {
@@ -336,7 +331,6 @@ const QuizGenerator: React.FC = () => {
   const shareQuizOnline = async () => {
     if (!quizData) return;
     
-    const jsonString = JSON.stringify(quizData.questions, null, 2);
     const questionsCount = quizData.questions.length;
     
     // Obtener referencia del botón
@@ -346,54 +340,54 @@ const QuizGenerator: React.FC = () => {
     try {
       // Mostrar indicador de carga
       if (button) {
-        button.textContent = '⏳ Creando gist...';
+        button.textContent = '⏳ Subiendo...';
         button.disabled = true;
       }
       
-      // Crear gist en GitHub
-      const response = await fetch('https://api.github.com/gists', {
+      // Crear bin en JSONBin.io
+      const response = await fetch('https://api.jsonbin.io/v3/b', {
         method: 'POST',
         headers: {
-          'Authorization': `token ${githubToken}`,
           'Content-Type': 'application/json',
+          'X-Bin-Name': `Quiz personalizado - ${questionsCount} preguntas`,
         },
         body: JSON.stringify({
-          description: `Quiz personalizado (${questionsCount} preguntas)`,
-          public: true,
-          files: {
-            'quiz.json': {
-              content: jsonString
-            }
+          quiz: quizData.questions,
+          metadata: {
+            title: `Quiz personalizado`,
+            questions: questionsCount,
+            created: new Date().toISOString()
           }
         })
       });
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(`Error HTTP: ${response.status} - ${errorData.message || 'Error desconocido'}`);
+        throw new Error(`Error HTTP: ${response.status} - ${errorData.message || 'Error al subir quiz'}`);
       }
 
-      const gist = await response.json();
-      const shareUrl = `${window.location.origin}${window.location.pathname}?gist=${gist.id}`;
+      const result = await response.json();
+      const binId = result.metadata.id;
+      const shareUrl = `${window.location.origin}${window.location.pathname}?bin=${binId}`;
       
       // Copiar URL al portapapeles
       await navigator.clipboard.writeText(shareUrl);
       
       alert(
-        `🔗 Quiz subido a GitHub Gist y URL copiada! (${questionsCount} preguntas)\n\n` +
+        `🔗 Quiz subido y URL copiada! (${questionsCount} preguntas)\n\n` +
         `✅ URL corta y confiable\n` +
         `✅ Funciona sin límites de tamaño\n` +
-        `✅ Almacenado en GitHub\n\n` +
+        `✅ Almacenado online de forma gratuita\n\n` +
         `💡 Solo pega el enlace y la otra persona podrá acceder directamente al quiz.\n\n` +
-        `🔗 Gist ID: ${gist.id}`
+        `🆔 Bin ID: ${binId}`
       );
       
     } catch (error) {
-      console.error('Error al crear gist:', error);
+      console.error('Error al crear bin:', error);
       const errorMsg = error instanceof Error ? error.message : 'Error desconocido';
       
       alert(
-        `❌ Error al crear el gist: ${errorMsg}\n\n` +
+        `❌ Error al subir el quiz: ${errorMsg}\n\n` +
         `💡 Como alternativa, usa "📋 Copiar JSON" para compartir manualmente.`
       );
     } finally {
