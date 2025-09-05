@@ -475,6 +475,99 @@ h1 {
   transform: translateY(-1px);
 }
 
+/* GitHub Token Configuration Styles */
+.token-config {
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.token-instructions {
+  background: #f8fafc;
+  border-radius: 12px;
+  padding: 20px;
+  margin: 20px 0;
+  border-left: 4px solid #6366f1;
+}
+
+.token-instructions h3 {
+  color: #6366f1;
+  margin-bottom: 15px;
+}
+
+.token-instructions ol {
+  margin-left: 20px;
+  line-height: 1.6;
+}
+
+.token-instructions li {
+  margin-bottom: 8px;
+}
+
+.token-instructions code {
+  background: #e2e8f0;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: 'Monaco', 'Menlo', monospace;
+  font-size: 0.9em;
+}
+
+.token-input-section {
+  margin: 30px 0;
+}
+
+.token-input {
+  width: 100%;
+  padding: 15px;
+  font-size: 1.1rem;
+  border: 2px solid #e2e8f0;
+  border-radius: 12px;
+  margin-bottom: 15px;
+  font-family: 'Monaco', 'Menlo', monospace;
+  transition: border-color 0.2s ease;
+}
+
+.token-input:focus {
+  outline: none;
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
+.token-actions {
+  display: flex;
+  gap: 15px;
+  justify-content: center;
+}
+
+.token-security {
+  background: #fef3c7;
+  border-radius: 12px;
+  padding: 15px;
+  margin-top: 20px;
+  border-left: 4px solid #f59e0b;
+}
+
+.github-token-status {
+  text-align: center;
+  margin-top: 20px;
+  padding: 15px;
+  background: #dcfce7;
+  border-radius: 12px;
+  border-left: 4px solid #22c55e;
+}
+
+.btn-link {
+  background: none;
+  border: none;
+  color: #6366f1;
+  cursor: pointer;
+  text-decoration: underline;
+  font-size: inherit;
+}
+
+.btn-link:hover {
+  color: #4f46e5;
+}
+
 @media (max-width: 768px) {
   .quiz-container {
     margin: 10px;
@@ -491,6 +584,11 @@ h1 {
   }
   
   .results-actions {
+    flex-direction: column;
+    align-items: center;
+  }
+  
+  .token-actions {
     flex-direction: column;
     align-items: center;
   }

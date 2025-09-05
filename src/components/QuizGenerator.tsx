@@ -27,13 +27,30 @@ const QuizGenerator: React.FC<QuizGeneratorProps> = () => {
   const [showResults, setShowResults] = useState(false);
   const [quizResult, setQuizResult] = useState<QuizResult | null>(null);
   const [isRandomMode, setIsRandomMode] = useState(false);
+  const [githubToken, setGithubToken] = useState('');
+  const [showTokenInput, setShowTokenInput] = useState(false);
 
-  // Cargar quiz desde gist al iniciar
+  // Cargar token de GitHub desde localStorage
+  React.useEffect(() => {
+    const savedToken = localStorage.getItem('githubToken');
+    if (savedToken) {
+      setGithubToken(savedToken);
+    }
+  }, []);
+
+  // Cargar quiz desde enlace compartido al iniciar
   React.useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const gistId = urlParams.get('gist');
+    const binId = urlParams.get('bin');
+    const hash = window.location.hash;
+    
     if (gistId) {
       loadQuizFromGist(gistId);
+    } else if (binId) {
+      loadQuizFromBin(binId);
+    } else if (hash.includes('#quiz=')) {
+      loadQuizFromHash();
     }
   }, []);
 
@@ -71,6 +88,79 @@ const QuizGenerator: React.FC<QuizGeneratorProps> = () => {
       
       // Limpiar URL
       window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  };
+
+  const loadQuizFromBin = async (binId: string) => {
+    try {
+      const response = await fetch(`https://api.jsonbin.io/v3/b/${binId}`, {
+        headers: {
+          'X-Bin-Meta': 'false'
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Error HTTP: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      const parsedData = data.quiz || data;
+      
+      if (!Array.isArray(parsedData) || parsedData.length === 0) {
+        throw new Error('El quiz debe contener al menos una pregunta');
+      }
+      
+      setJsonInput(JSON.stringify(parsedData, null, 2));
+      // Auto-generar el quiz
+      generateQuizFromData(parsedData);
+      
+      // Limpiar URL
+      window.history.replaceState({}, document.title, window.location.pathname);
+      
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Error al cargar el quiz';
+      alert(`❌ Error al cargar el quiz compartido: ${errorMsg}\n\n💡 Verifica que el enlace sea correcto y que tengas conexión a internet.`);
+      
+      // Limpiar URL
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  };
+
+  const loadQuizFromHash = async () => {
+    try {
+      const hash = window.location.hash;
+      const quizMatch = hash.match(/#quiz=(.+)/);
+      
+      if (!quizMatch) {
+        throw new Error('Formato de enlace inválido');
+      }
+      
+      const compressed = quizMatch[1];
+      
+      // Descomprimir el Base64
+      const restored = compressed.replace(/-/g, '+').replace(/_/g, '/');
+      const padding = '='.repeat((4 - restored.length % 4) % 4);
+      const jsonString = atob(restored + padding);
+      
+      const parsedData = JSON.parse(jsonString);
+      
+      if (!Array.isArray(parsedData) || parsedData.length === 0) {
+        throw new Error('El quiz debe contener al menos una pregunta');
+      }
+      
+      setJsonInput(JSON.stringify(parsedData, null, 2));
+      // Auto-generar el quiz
+      generateQuizFromData(parsedData);
+      
+      // Limpiar hash
+      window.history.replaceState({}, document.title, window.location.pathname + window.location.search);
+      
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Error al cargar el quiz';
+      alert(`❌ Error al cargar el quiz compartido: ${errorMsg}\n\n💡 Verifica que el enlace sea correcto y no esté corrupto.`);
+      
+      // Limpiar hash
+      window.history.replaceState({}, document.title, window.location.pathname + window.location.search);
     }
   };
 
@@ -251,43 +341,49 @@ const QuizGenerator: React.FC<QuizGeneratorProps> = () => {
   const shareQuizOnline = async () => {
     if (!quizData) return;
     
+    // Si no hay token, mostrar formulario
+    if (!githubToken) {
+      setShowTokenInput(true);
+      return;
+    }
+    
     const jsonString = JSON.stringify(quizData.questions, null, 2);
     const questionsCount = quizData.questions.length;
     
     // Obtener referencia del botón
     const button = document.querySelector('.btn-share-online') as HTMLButtonElement;
-    const originalText = button?.textContent || '🔗 Compartir Online';
+    const originalText = button?.textContent || '🔗 Compartir con Gist';
     
     try {
       // Mostrar indicador de carga
       if (button) {
-        button.textContent = '⏳ Subiendo...';
+        button.textContent = '⏳ Creando gist...';
         button.disabled = true;
       }
       
-      // Crear gist
-      const gistData = {
-        description: `Quiz personalizado - ${questionsCount} preguntas`,
-        public: true,
-        files: {
-          'quiz.json': {
-            content: jsonString
-          }
-        }
-      };
-      
+      // Crear gist en GitHub
       const response = await fetch('https://api.github.com/gists', {
         method: 'POST',
         headers: {
+          'Authorization': `token ${githubToken}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(gistData)
+        body: JSON.stringify({
+          description: `Quiz personalizado (${questionsCount} preguntas)`,
+          public: true,
+          files: {
+            'quiz.json': {
+              content: jsonString
+            }
+          }
+        })
       });
-      
+
       if (!response.ok) {
-        throw new Error(`Error HTTP: ${response.status}`);
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(`Error HTTP: ${response.status} - ${errorData.message || 'Error desconocido'}`);
       }
-      
+
       const gist = await response.json();
       const shareUrl = `${window.location.origin}${window.location.pathname}?gist=${gist.id}`;
       
@@ -295,20 +391,36 @@ const QuizGenerator: React.FC<QuizGeneratorProps> = () => {
       await navigator.clipboard.writeText(shareUrl);
       
       alert(
-        `🔗 URL de quiz creada y copiada! (${questionsCount} preguntas)\n\n` +
-        `✅ URL corta y permanente\n` +
-        `✅ Funciona en todas las redes sociales\n` +
-        `✅ No expira nunca\n\n` +
-        `💡 Solo pega el enlace y la otra persona podrá acceder directamente al quiz.`
+        `🔗 Quiz subido a GitHub Gist y URL copiada! (${questionsCount} preguntas)\n\n` +
+        `✅ URL corta y confiable\n` +
+        `✅ Funciona sin límites de tamaño\n` +
+        `✅ Almacenado en GitHub\n\n` +
+        `💡 Solo pega el enlace y la otra persona podrá acceder directamente al quiz.\n\n` +
+        `🔗 Gist ID: ${gist.id}`
       );
       
     } catch (error) {
       console.error('Error al crear gist:', error);
-      alert(
-        `❌ Error al crear el enlace online\n\n` +
-        `Usa el botón "📋 Copiar JSON" como alternativa.\n` +
-        `(Posible problema de conectividad o límites de GitHub)`
-      );
+      const errorMsg = error instanceof Error ? error.message : 'Error desconocido';
+      
+      if (errorMsg.includes('401')) {
+        alert(
+          `🔑 Token de GitHub inválido o expirado\n\n` +
+          `El token que configuraste ya no funciona. Por favor:\n` +
+          `1. Ve a GitHub → Settings → Developer settings → Personal access tokens\n` +
+          `2. Genera un nuevo token con permisos de 'gist'\n` +
+          `3. Configúralo de nuevo en la app\n\n` +
+          `💡 Como alternativa, usa "📋 Copiar JSON"`
+        );
+        // Limpiar token inválido
+        localStorage.removeItem('githubToken');
+        setGithubToken('');
+      } else {
+        alert(
+          `❌ Error al crear el gist: ${errorMsg}\n\n` +
+          `💡 Como alternativa, usa "📋 Copiar JSON" para compartir manualmente.`
+        );
+      }
     } finally {
       // Restaurar botón
       if (button) {
@@ -316,6 +428,19 @@ const QuizGenerator: React.FC<QuizGeneratorProps> = () => {
         button.disabled = false;
       }
     }
+  };
+
+  const saveGithubToken = (token: string) => {
+    setGithubToken(token);
+    localStorage.setItem('githubToken', token);
+    setShowTokenInput(false);
+    alert('🔑 Token de GitHub guardado exitosamente!\n\nYa puedes compartir tus quizzes usando GitHub Gist.');
+  };
+
+  const removeGithubToken = () => {
+    setGithubToken('');
+    localStorage.removeItem('githubToken');
+    alert('🔑 Token de GitHub eliminado.\n\nPara volver a usar Gist, deberás configurar un nuevo token.');
   };
 
   if (showResults && quizResult && quizData) {
@@ -407,7 +532,7 @@ const QuizGenerator: React.FC<QuizGeneratorProps> = () => {
 
         <div className="quiz-actions">
           <button onClick={shareQuizOnline} className="btn-primary btn-share-online">
-            🔗 Compartir Online
+            {githubToken ? '🔗 Compartir con Gist' : '🔑 Configurar Gist'}
           </button>
           <button onClick={shareQuiz} className="btn-secondary">
             📋 Copiar JSON
@@ -415,6 +540,76 @@ const QuizGenerator: React.FC<QuizGeneratorProps> = () => {
           <button onClick={resetQuiz} className="btn-danger">
             🗑️ Eliminar Quiz
           </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Modal para configurar token de GitHub
+  if (showTokenInput) {
+    return (
+      <div className="quiz-container">
+        <div className="token-config">
+          <h2>🔑 Configurar GitHub Token</h2>
+          <p>Para compartir quizzes usando GitHub Gist necesitas un Personal Access Token:</p>
+          
+          <div className="token-instructions">
+            <h3>📋 Pasos para crear tu token:</h3>
+            <ol>
+              <li>Ve a <a href="https://github.com/settings/tokens" target="_blank" rel="noopener noreferrer">GitHub → Settings → Personal Access Tokens</a></li>
+              <li>Click en "Generate new token" → "Generate new token (classic)"</li>
+              <li>Configura:
+                <ul>
+                  <li><strong>Note:</strong> "Quiz Generator Gist"</li>
+                  <li><strong>Expiration:</strong> 90 days (o sin expiración)</li>
+                  <li><strong>Scopes:</strong> Marca solo <code>gist</code></li>
+                </ul>
+              </li>
+              <li>Click "Generate token" y copia el token</li>
+            </ol>
+          </div>
+
+          <div className="token-input-section">
+            <h3>🔐 Pega tu token aquí:</h3>
+            <input
+              type="password"
+              placeholder="ghp_xxxxxxxxxxxxxxxxxx"
+              className="token-input"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  const target = e.target as HTMLInputElement;
+                  if (target.value.trim()) {
+                    saveGithubToken(target.value.trim());
+                  }
+                }
+              }}
+            />
+            <div className="token-actions">
+              <button 
+                onClick={(e) => {
+                  const input = e.currentTarget.parentElement?.previousElementSibling as HTMLInputElement;
+                  if (input?.value.trim()) {
+                    saveGithubToken(input.value.trim());
+                  } else {
+                    alert('Por favor ingresa un token válido');
+                  }
+                }}
+                className="btn-primary"
+              >
+                💾 Guardar Token
+              </button>
+              <button 
+                onClick={() => setShowTokenInput(false)}
+                className="btn-secondary"
+              >
+                ❌ Cancelar
+              </button>
+            </div>
+          </div>
+
+          <div className="token-security">
+            <p><strong>🔒 Seguridad:</strong> El token se guarda solo en tu navegador (localStorage). Nunca se envía a nuestros servidores, solo a GitHub para crear gists.</p>
+          </div>
         </div>
       </div>
     );
@@ -490,6 +685,12 @@ const QuizGenerator: React.FC<QuizGeneratorProps> = () => {
           🪄 Generar Cuestionario
         </button>
       </div>
+
+      {githubToken && (
+        <div className="github-token-status">
+          <p>✅ GitHub Token configurado - <button onClick={removeGithubToken} className="btn-link">Eliminar</button></p>
+        </div>
+      )}
     </div>
   );
 };
