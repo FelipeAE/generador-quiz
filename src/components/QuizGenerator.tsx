@@ -34,13 +34,33 @@ const QuizGenerator: React.FC<QuizGeneratorProps> = () => {
     const quizParam = urlParams.get('quiz');
     if (quizParam) {
       try {
+        if (quizParam.length > 10000) {
+          alert('⚠️ URL demasiado larga. Es posible que el quiz no se cargue correctamente.');
+        }
+        
         const decodedJson = atob(quizParam);
+        
+        // Verificar que el JSON sea válido antes de parsear
+        if (!decodedJson.trim().startsWith('[') || !decodedJson.trim().endsWith(']')) {
+          throw new Error('Formato de quiz inválido');
+        }
+        
         const parsedData = JSON.parse(decodedJson);
+        
+        if (!Array.isArray(parsedData) || parsedData.length === 0) {
+          throw new Error('El quiz debe contener al menos una pregunta');
+        }
+        
         setJsonInput(JSON.stringify(parsedData, null, 2));
         // Auto-generar el quiz
         generateQuizFromData(parsedData);
+        
       } catch (error) {
-        alert('Error al cargar el quiz compartido: URL inválida');
+        const errorMsg = error instanceof Error ? error.message : 'URL inválida';
+        alert(`❌ Error al cargar el quiz compartido: ${errorMsg}\n\n💡 Verifica que el enlace esté completo y no esté cortado.`);
+        
+        // Limpiar la URL para evitar bucles de error
+        window.history.replaceState({}, document.title, window.location.pathname);
       }
     }
   }, []);
@@ -208,25 +228,44 @@ const QuizGenerator: React.FC<QuizGeneratorProps> = () => {
     const urlSize = shareUrl.length;
     const questionsCount = quizData.questions.length;
     
-    if (urlSize > 8000) {
-      // URL muy larga - mostrar alternativa
-      if (confirm(
-        `⚠️ Este quiz tiene ${questionsCount} preguntas y genera una URL muy larga (${urlSize} caracteres).\n\n` +
-        `Esto puede causar problemas al compartir en redes sociales.\n\n` +
-        `¿Prefieres copiar el JSON directamente en su lugar?`
-      )) {
+    // Límites más estrictos
+    if (urlSize > 6000) {
+      // URL muy larga - forzar alternativa
+      const useAlternative = confirm(
+        `❌ Quiz demasiado grande para compartir por URL\n\n` +
+        `• ${questionsCount} preguntas = ${urlSize} caracteres\n` +
+        `• Límite recomendado: 6000 caracteres\n\n` +
+        `📋 ¿Copiar el JSON para compartir manualmente?\n` +
+        `(La otra persona puede pegarlo directamente en la aplicación)`
+      );
+      
+      if (useAlternative) {
         navigator.clipboard.writeText(jsonString).then(() => {
-          alert('📋 JSON copiado al portapapeles. Pégalo en la aplicación para usar el quiz.');
+          alert('📋 JSON copiado al portapapeles!\n\n💡 Instrucciones:\n1. Comparte este texto con la otra persona\n2. Que lo pegue en el campo de texto de la aplicación\n3. Que haga clic en "Generar Cuestionario"');
+        }).catch(() => {
+          prompt('📋 Copia este JSON para compartir:', jsonString);
         });
-        return;
       }
+      return;
+    }
+    
+    // Límite de advertencia
+    if (urlSize > 3000) {
+      const proceed = confirm(
+        `⚠️ URL larga detectada\n\n` +
+        `• ${questionsCount} preguntas = ${urlSize} caracteres\n` +
+        `• Puede no funcionar en WhatsApp/redes sociales\n\n` +
+        `¿Continuar con la URL larga?`
+      );
+      
+      if (!proceed) return;
     }
     
     // Copiar URL al portapapeles
     navigator.clipboard.writeText(shareUrl).then(() => {
       let message = `🔗 URL del quiz copiada al portapapeles!\n\n`;
-      if (urlSize > 2000) {
-        message += `⚠️ Nota: La URL es larga (${urlSize} caracteres). Puede que no funcione bien en WhatsApp u otras redes sociales.`;
+      if (urlSize > 3000) {
+        message += `⚠️ URL larga (${urlSize} caracteres). Puede fallar en algunas apps.`;
       } else {
         message += `✅ URL compacta (${urlSize} caracteres) - perfecta para compartir.`;
       }
