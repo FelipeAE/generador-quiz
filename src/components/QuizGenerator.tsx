@@ -28,52 +28,52 @@ const QuizGenerator: React.FC = () => {
   
   // Sistema de URLs con hash + compresión LZ - funciona siempre, sin APIs externas
   
-  // Compresión LZ simple para URLs más cortas
+  // Compresión simple y segura para URLs más cortas
   const compressString = (str: string): string => {
-    const dict: { [key: string]: number } = {};
-    const data = (str + "").split("");
-    const result = [];
-    let currChar = data[0];
-    let phrase = currChar;
-    let code = 256;
+    // Usar compresión por repetición de patrones comunes
+    let compressed = str;
     
-    for (let i = 1; i < data.length; i++) {
-      currChar = data[i];
-      if (dict[phrase + currChar] !== undefined) {
-        phrase += currChar;
-      } else {
-        result.push(phrase.length > 1 ? dict[phrase] : phrase.charCodeAt(0));
-        dict[phrase + currChar] = code;
-        code++;
-        phrase = currChar;
-      }
-    }
-    result.push(phrase.length > 1 ? dict[phrase] : phrase.charCodeAt(0));
+    // Reemplazar patrones comunes en JSON de quiz
+    const patterns = [
+      ['"question":"', '§q§'],
+      ['"choices":[', '§c§'],
+      ['"answer":', '§a§'],
+      ['","', '§,§'],
+      ['"}', '§}§'],
+      ['{"', '§{§'],
+      ['],"', '§],§'],
+      ['true', '§T§'],
+      ['false', '§F§']
+    ];
     
-    // Convertir a string compacto
-    return result.map(code => String.fromCharCode(code)).join('');
+    patterns.forEach(([pattern, replacement]) => {
+      compressed = compressed.split(pattern).join(replacement);
+    });
+    
+    return compressed;
   };
 
   const decompressString = (compressed: string): string => {
-    const dict: { [key: number]: string } = {};
-    const data = compressed.split("").map(c => c.charCodeAt(0));
-    let currChar = String.fromCharCode(data[0]);
-    let oldPhrase = currChar;
-    const result = [currChar];
-    let code = 256;
+    // Restaurar patrones
+    let decompressed = compressed;
     
-    for (let i = 1; i < data.length; i++) {
-      const currCode = data[i];
-      let phrase = dict[currCode] || (currCode === code ? oldPhrase + currChar : String.fromCharCode(currCode));
-      
-      result.push(phrase);
-      currChar = phrase.charAt(0);
-      dict[code] = oldPhrase + currChar;
-      code++;
-      oldPhrase = phrase;
-    }
+    const patterns = [
+      ['§q§', '"question":"'],
+      ['§c§', '"choices":['],
+      ['§a§', '"answer":'],
+      ['§,§', '","'],
+      ['§}§', '"}'],
+      ['§{§', '{"'],
+      ['§],§', '],"'],
+      ['§T§', 'true'],
+      ['§F§', 'false']
+    ];
     
-    return result.join("");
+    patterns.forEach(([pattern, replacement]) => {
+      decompressed = decompressed.split(pattern).join(replacement);
+    });
+    
+    return decompressed;
   };
 
   // Cargar quiz desde enlace compartido al iniciar
@@ -432,7 +432,7 @@ const QuizGenerator: React.FC = () => {
         `✅ Sin límites ni expiración\n` +
         `✅ Completamente offline\n` +
         `📏 Tamaño: ${urlLength} caracteres\n` +
-        `🗜️ Compresión LZ: ${compressionRatio}% reducción${sizeWarning}\n\n` +
+        `🗜️ Compresión: ${compressionRatio}% reducción${sizeWarning}\n\n` +
         `💡 Solo pega el enlace y la otra persona podrá acceder directamente al quiz.`
       );
       
