@@ -93,8 +93,8 @@ const QuizGenerator: React.FC<QuizGeneratorProps> = () => {
   const finishQuiz = () => {
     if (!quizData) return;
 
-    const score = userAnswers.reduce((total, answer, index) => {
-      if (answer === quizData.questions[index].answer) {
+    const score = userAnswers.reduce((total: number, answer, index) => {
+      if (answer !== null && answer === quizData.questions[index].answer) {
         return total + 1;
       }
       return total;
@@ -131,8 +131,8 @@ const QuizGenerator: React.FC<QuizGeneratorProps> = () => {
       questions: quizData.questions.map((q, i) => ({
         question: q.question,
         correctAnswer: q.choices[q.answer],
-        userAnswer: userAnswers[i] !== null ? q.choices[userAnswers[i]!] : 'Sin responder',
-        correct: userAnswers[i] === q.answer
+        userAnswer: userAnswers[i] !== null ? q.choices[userAnswers[i] as number] : 'Sin responder',
+        correct: userAnswers[i] !== null && userAnswers[i] === q.answer
       }))
     };
 
@@ -163,8 +163,8 @@ const QuizGenerator: React.FC<QuizGeneratorProps> = () => {
               <h4>{index + 1}. {question.question}</h4>
               <p><strong>Respuesta correcta:</strong> {question.choices[question.answer]}</p>
               <p><strong>Tu respuesta:</strong> 
-                <span className={userAnswers[index] === question.answer ? 'correct' : 'incorrect'}>
-                  {userAnswers[index] !== null ? question.choices[userAnswers[index]!] : 'Sin responder'}
+                <span className={userAnswers[index] !== null && userAnswers[index] === question.answer ? 'correct' : 'incorrect'}>
+                  {userAnswers[index] !== null ? question.choices[userAnswers[index] as number] : 'Sin responder'}
                 </span>
               </p>
             </div>
