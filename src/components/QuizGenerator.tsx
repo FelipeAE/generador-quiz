@@ -26,22 +26,19 @@ const QuizGenerator: React.FC = () => {
   const [quizResult, setQuizResult] = useState<QuizResult | null>(null);
   const [isRandomMode, setIsRandomMode] = useState(false);
   
-  // Pastebin no requiere autenticación para crear pastes públicos
+  // Sistema de URLs con hash - funciona siempre, sin APIs externas
 
   // Cargar quiz desde enlace compartido al iniciar
   React.useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const gistId = urlParams.get('gist');
     const binId = urlParams.get('bin');
-    const pasteId = urlParams.get('paste');
     const hash = window.location.hash;
     
     if (gistId) {
       loadQuizFromGist(gistId);
     } else if (binId) {
       loadQuizFromBin(binId);
-    } else if (pasteId) {
-      loadQuizFromPastebin(pasteId);
     } else if (hash.includes('#quiz=')) {
       loadQuizFromHash();
     }
@@ -119,37 +116,6 @@ const QuizGenerator: React.FC = () => {
     }
   };
 
-  const loadQuizFromPastebin = async (pasteId: string) => {
-    try {
-      // Obtener contenido raw de Pastebin
-      const response = await fetch(`https://pastebin.com/raw/${pasteId}`);
-      
-      if (!response.ok) {
-        throw new Error(`Error HTTP: ${response.status}`);
-      }
-      
-      const rawContent = await response.text();
-      const parsedData = JSON.parse(rawContent);
-      
-      if (!Array.isArray(parsedData) || parsedData.length === 0) {
-        throw new Error('El quiz debe contener al menos una pregunta');
-      }
-      
-      setJsonInput(JSON.stringify(parsedData, null, 2));
-      // Auto-generar el quiz
-      generateQuizFromData(parsedData);
-      
-      // Limpiar URL
-      window.history.replaceState({}, document.title, window.location.pathname);
-      
-    } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : 'Error al cargar el quiz';
-      alert(`❌ Error al cargar el quiz desde Pastebin: ${errorMsg}\n\n💡 Verifica que el enlace sea correcto y que tengas conexión a internet.`);
-      
-      // Limpiar URL
-      window.history.replaceState({}, document.title, window.location.pathname);
-    }
-  };
 
   const loadQuizFromHash = async () => {
     try {
@@ -375,57 +341,43 @@ const QuizGenerator: React.FC = () => {
     try {
       // Mostrar indicador de carga
       if (button) {
-        button.textContent = '⏳ Subiendo...';
+        button.textContent = '⏳ Generando URL...';
         button.disabled = true;
       }
       
-      // Crear paste en Pastebin
-      const jsonContent = JSON.stringify(quizData.questions, null, 2);
-      const formData = new FormData();
-      formData.append('api_paste_code', jsonContent);
-      formData.append('api_paste_name', `Quiz personalizado - ${questionsCount} preguntas`);
-      formData.append('api_paste_expire_date', '1M'); // Expira en 1 mes
-      formData.append('api_paste_format', 'json');
-      formData.append('api_option', 'paste');
+      // Comprimir JSON usando Base64 mejorado
+      const jsonString = JSON.stringify(quizData.questions);
       
-      const response = await fetch('https://pastebin.com/api/api_post.php', {
-        method: 'POST',
-        body: formData
-      });
-
-      if (!response.ok) {
-        throw new Error(`Error HTTP: ${response.status}`);
-      }
-
-      const pasteUrl = await response.text();
+      // Usar compresión simple con Base64 URL-safe
+      const compressed = btoa(jsonString)
+        .replace(/\+/g, '-')
+        .replace(/\//g, '_')
+        .replace(/=/g, '');
       
-      // Verificar que es una URL válida de Pastebin
-      if (!pasteUrl.startsWith('https://pastebin.com/')) {
-        throw new Error(`Error de Pastebin: ${pasteUrl}`);
-      }
-      
-      // Extraer el ID del paste
-      const pasteId = pasteUrl.split('/').pop();
-      const shareUrl = `${window.location.origin}${window.location.pathname}?paste=${pasteId}`;
+      const shareUrl = `${window.location.origin}${window.location.pathname}#quiz=${compressed}`;
       
       // Copiar URL al portapapeles
       await navigator.clipboard.writeText(shareUrl);
       
+      // Calcular tamaño aproximado de la URL
+      const urlLength = shareUrl.length;
+      const sizeWarning = urlLength > 2000 ? '\n⚠️ URL larga - puede tener problemas en algunos servicios de mensajería' : '';
+      
       alert(
-        `🔗 Quiz subido a Pastebin y URL copiada! (${questionsCount} preguntas)\n\n` +
-        `✅ URL corta y confiable\n` +
-        `✅ Sin límites de tamaño\n` +
-        `✅ Expira en 1 mes automáticamente\n\n` +
-        `💡 Solo pega el enlace y la otra persona podrá acceder directamente al quiz.\n\n` +
-        `🆔 Paste ID: ${pasteId}`
+        `🔗 URL de quiz generada y copiada! (${questionsCount} preguntas)\n\n` +
+        `✅ Funciona inmediatamente sin servidor\n` +
+        `✅ Sin límites ni expiración\n` +
+        `✅ Completamente offline\n` +
+        `📏 Tamaño: ${urlLength} caracteres${sizeWarning}\n\n` +
+        `💡 Solo pega el enlace y la otra persona podrá acceder directamente al quiz.`
       );
       
     } catch (error) {
-      console.error('Error al crear paste:', error);
+      console.error('Error al crear URL:', error);
       const errorMsg = error instanceof Error ? error.message : 'Error desconocido';
       
       alert(
-        `❌ Error al subir el quiz: ${errorMsg}\n\n` +
+        `❌ Error al generar URL: ${errorMsg}\n\n` +
         `💡 Como alternativa, usa "📋 Copiar JSON" para compartir manualmente.`
       );
     } finally {
