@@ -14,7 +14,9 @@
       "Bash(ssh-add:*)",
       "Bash(ssh:*)",
       "Bash(node:*)",
-      "Bash(echo:*)"
+      "Bash(echo:*)",
+      "WebFetch(domain:tinyurl.com)",
+      "WebSearch"
     ],
     "deny": [],
     "ask": []

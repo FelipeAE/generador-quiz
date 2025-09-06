@@ -25,6 +25,7 @@ const QuizGenerator: React.FC = () => {
   const [showResults, setShowResults] = useState(false);
   const [quizResult, setQuizResult] = useState<QuizResult | null>(null);
   const [isRandomMode, setIsRandomMode] = useState(false);
+  const [isUrlShortening, setIsUrlShortening] = useState(false);
   
   // Sistema de URLs con hash + compresión LZ - funciona siempre, sin APIs externas
   
@@ -74,6 +75,29 @@ const QuizGenerator: React.FC = () => {
     });
     
     return decompressed;
+  };
+
+  // Función para acortar URLs usando TinyURL API
+  const shortenUrl = async (longUrl: string): Promise<string> => {
+    try {
+      const response = await fetch(`https://tinyurl.com/api-create.php?url=${encodeURIComponent(longUrl)}`);
+      
+      if (!response.ok) {
+        throw new Error(`Error HTTP: ${response.status}`);
+      }
+      
+      const shortUrl = await response.text();
+      
+      // Verificar que la respuesta sea una URL válida
+      if (shortUrl.startsWith('http') && shortUrl.includes('tinyurl.com')) {
+        return shortUrl;
+      } else {
+        throw new Error('Respuesta inválida del servicio de acortado');
+      }
+    } catch (error) {
+      console.error('Error al acortar URL:', error);
+      throw error;
+    }
   };
 
   // Cargar quiz desde enlace compartido al iniciar
@@ -396,6 +420,8 @@ const QuizGenerator: React.FC = () => {
     const originalText = button?.textContent || '🔗 Compartir Online';
     
     try {
+      setIsUrlShortening(true);
+      
       // Mostrar indicador de carga
       if (button) {
         button.textContent = '⏳ Generando URL...';
@@ -414,27 +440,70 @@ const QuizGenerator: React.FC = () => {
       
       console.log(`Compresión: ${jsonString.length} → ${lzCompressed.length} → ${base64Compressed.length} chars`);
       
-      const shareUrl = `${window.location.origin}${window.location.pathname}#quiz=${base64Compressed}`;
+      const longUrl = `${window.location.origin}${window.location.pathname}#quiz=${base64Compressed}`;
+      const longUrlLength = longUrl.length;
       
-      // Copiar URL al portapapeles
-      await navigator.clipboard.writeText(shareUrl);
+      let finalUrl = longUrl;
+      let urlInfo = '';
       
-      // Calcular tamaño y estadísticas de compresión
-      const urlLength = shareUrl.length;
-      const originalSize = jsonString.length;
-      const compressedSize = base64Compressed.length;
-      const compressionRatio = Math.round((1 - compressedSize / originalSize) * 100);
-      const sizeWarning = urlLength > 2000 ? '\n⚠️ URL larga - puede tener problemas en algunos servicios de mensajería' : '';
+      // Intentar acortar la URL con TinyURL si es muy larga
+      if (longUrlLength > 500) {
+        try {
+          if (button) {
+            button.textContent = '🔗 Acortando URL...';
+          }
+          
+          const shortUrl = await shortenUrl(longUrl);
+          finalUrl = shortUrl;
+          
+          // Calcular estadísticas
+          const originalSize = jsonString.length;
+          const compressedSize = base64Compressed.length;
+          const compressionRatio = Math.round((1 - compressedSize / originalSize) * 100);
+          const urlReduction = Math.round((1 - shortUrl.length / longUrlLength) * 100);
+          
+          urlInfo = `🔗 URL acortada exitosamente! (${questionsCount} preguntas)\n\n` +
+            `✅ URL corta y fácil de compartir\n` +
+            `✅ Funciona inmediatamente sin servidor\n` +
+            `✅ Sin límites ni expiración\n` +
+            `📏 URL original: ${longUrlLength} → URL final: ${shortUrl.length} caracteres\n` +
+            `🗜️ Compresión datos: ${compressionRatio}% | URL: ${urlReduction}% reducción\n\n` +
+            `💡 Solo pega el enlace corto y accederán directamente al quiz.`;
+        } catch (shortError) {
+          console.warn('No se pudo acortar la URL, usando URL larga:', shortError);
+          
+          // Usar URL larga como fallback
+          const originalSize = jsonString.length;
+          const compressedSize = base64Compressed.length;
+          const compressionRatio = Math.round((1 - compressedSize / originalSize) * 100);
+          const sizeWarning = longUrlLength > 2000 ? '\n⚠️ URL larga - puede tener problemas en algunos servicios de mensajería' : '';
+          
+          urlInfo = `🔗 URL de quiz generada! (${questionsCount} preguntas)\n\n` +
+            `⚠️ No se pudo acortar (servicio no disponible)\n` +
+            `✅ Funciona inmediatamente sin servidor\n` +
+            `✅ Sin límites ni expiración\n` +
+            `📏 Tamaño: ${longUrlLength} caracteres\n` +
+            `🗜️ Compresión: ${compressionRatio}% reducción${sizeWarning}\n\n` +
+            `💡 Solo pega el enlace y accederán directamente al quiz.`;
+        }
+      } else {
+        // URL ya es corta, no necesita acortado
+        const originalSize = jsonString.length;
+        const compressedSize = base64Compressed.length;
+        const compressionRatio = Math.round((1 - compressedSize / originalSize) * 100);
+        
+        urlInfo = `🔗 URL de quiz generada! (${questionsCount} preguntas)\n\n` +
+          `✅ URL ya es compacta (${longUrlLength} caracteres)\n` +
+          `✅ Funciona inmediatamente sin servidor\n` +
+          `✅ Sin límites ni expiración\n` +
+          `🗜️ Compresión: ${compressionRatio}% reducción\n\n` +
+          `💡 Solo pega el enlace y accederán directamente al quiz.`;
+      }
       
-      alert(
-        `🔗 URL de quiz generada y copiada! (${questionsCount} preguntas)\n\n` +
-        `✅ Funciona inmediatamente sin servidor\n` +
-        `✅ Sin límites ni expiración\n` +
-        `✅ Completamente offline\n` +
-        `📏 Tamaño: ${urlLength} caracteres\n` +
-        `🗜️ Compresión: ${compressionRatio}% reducción${sizeWarning}\n\n` +
-        `💡 Solo pega el enlace y la otra persona podrá acceder directamente al quiz.`
-      );
+      // Copiar URL final al portapapeles
+      await navigator.clipboard.writeText(finalUrl);
+      
+      alert(urlInfo);
       
     } catch (error) {
       console.error('Error al crear URL:', error);
@@ -446,6 +515,7 @@ const QuizGenerator: React.FC = () => {
       );
     } finally {
       // Restaurar botón
+      setIsUrlShortening(false);
       if (button) {
         button.textContent = originalText;
         button.disabled = false;
@@ -542,8 +612,12 @@ const QuizGenerator: React.FC = () => {
         </div>
 
         <div className="quiz-actions">
-          <button onClick={shareQuizOnline} className="btn-primary btn-share-online">
-            🔗 Compartir Online
+          <button 
+            onClick={shareQuizOnline} 
+            className="btn-primary btn-share-online"
+            disabled={isUrlShortening}
+          >
+            {isUrlShortening ? '⏳ Generando...' : '🔗 Compartir Online'}
           </button>
           <button onClick={shareQuiz} className="btn-secondary">
             📋 Copiar JSON
