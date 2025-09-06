@@ -13,7 +13,8 @@
       "Bash(ssh-keygen:*)",
       "Bash(ssh-add:*)",
       "Bash(ssh:*)",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "Bash(echo:*)"
     ],
     "deny": [],
     "ask": []
