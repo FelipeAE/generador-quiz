@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import FileUploader from './FileUploader';
+import TextExtractor from './TextExtractor';
 
 type QuizQuestion = {
   question: string;
@@ -26,6 +28,8 @@ const QuizGenerator: React.FC = () => {
   const [quizResult, setQuizResult] = useState<QuizResult | null>(null);
   const [isRandomMode, setIsRandomMode] = useState(false);
   const [isUrlShortening, setIsUrlShortening] = useState(false);
+  const [extractedText, setExtractedText] = useState('');
+  const [extractedFiles, setExtractedFiles] = useState<any[]>([]);
   
   // Sistema de URLs con hash + compresión LZ - funciona siempre, sin APIs externas
   
@@ -340,6 +344,22 @@ const QuizGenerator: React.FC = () => {
     setShowResults(false);
     setQuizResult(null);
     setJsonInput('');
+    setExtractedText('');
+  };
+
+  const handleTextExtracted = (text: string) => {
+    setExtractedText(text);
+  };
+
+  const handleMultipleTextsExtracted = (files: any[]) => {
+    setExtractedFiles(files);
+    // Clear single text when we have multiple files
+    setExtractedText('');
+  };
+
+  const clearExtractedText = () => {
+    setExtractedText('');
+    setExtractedFiles([]);
   };
 
   const shareResults = () => {
@@ -634,10 +654,25 @@ const QuizGenerator: React.FC = () => {
   return (
     <div className="quiz-container">
       <h1>¡Crea tu Quiz Personalizado!</h1>
-      <p>Pega o escribe el archivo JSON con tus preguntas y genera tu cuestionario en segundos.</p>
+      <p>Sube un documento PDF/Word o pega el JSON con tus preguntas para generar tu cuestionario.</p>
+
+      <FileUploader
+        onTextExtracted={handleTextExtracted}
+        onMultipleTextsExtracted={handleMultipleTextsExtracted}
+      />
+
+      {extractedText && (
+        <TextExtractor
+          extractedText={extractedText}
+          onClearText={clearExtractedText}
+        />
+      )}
 
       <div className="json-input-section">
         <h3>Archivo JSON de preguntas</h3>
+        <p className="input-description">
+          Si ya tienes el JSON generado por tu IA, pégalo aquí:
+        </p>
         <textarea
           value={jsonInput}
           onChange={(e) => setJsonInput(e.target.value)}
@@ -659,17 +694,32 @@ const QuizGenerator: React.FC = () => {
       </div>
 
       <div className="instructions">
-        <h4>📋 Ver Indicaciones</h4>
+        <h4>📋 Instrucciones para generar preguntas</h4>
         <div className="instructions-content">
-          <ol>
-            <li><strong>Abre tu IA favorita</strong> (como ChatGPT, Gemini o cualquier otra).</li>
-            <li><strong>Súbele tu PDF</strong> o pregúntale sobre el contenido que quieras estudiar.</li>
-            <li><strong>Copia el siguiente prompt</strong> y pégalo al final del texto entregado a la IA.</li>
-            <li><strong>La IA te entregará un archivo o bloque de texto</strong> en formato JSON como este:</li>
-            <pre>{exampleJson}</pre>
-            <li><strong>Copia o sube el archivo de texto generado por la IA</strong> y pégalo en esta página (en el campo grande abajo de "Ingresar JSON").</li>
-            <li><strong>Haz clic en "Generar Cuestionario"</strong> y listo 🎉.</li>
-          </ol>
+          <div className="method-options">
+            <div className="method-card">
+              <h5>🎯 Método recomendado: Subir documento</h5>
+              <ol>
+                <li><strong>Sube tu PDF o Word</strong> en la sección de arriba</li>
+                <li><strong>Copia el texto extraído</strong> automáticamente</li>
+                <li><strong>Ve a tu IA favorita</strong> (ChatGPT, Claude, Gemini, etc.)</li>
+                <li><strong>Pega el texto + el prompt de abajo</strong></li>
+                <li><strong>Copia el JSON generado</strong> y pégalo aquí</li>
+                <li><strong>¡Genera tu quiz!</strong> 🎉</li>
+              </ol>
+              <p className="method-benefit">✅ <strong>Ventajas:</strong> Ahorra tokens, tiempo y mejores resultados</p>
+            </div>
+
+            <div className="method-card">
+              <h5>📝 Método alternativo: Sin archivo</h5>
+              <ol>
+                <li><strong>Ve directamente a tu IA favorita</strong></li>
+                <li><strong>Sube tu documento o describe el tema</strong></li>
+                <li><strong>Usa el prompt de abajo</strong></li>
+                <li><strong>Copia el JSON generado</strong> y pégalo aquí</li>
+              </ol>
+            </div>
+          </div>
         </div>
       </div>
 
