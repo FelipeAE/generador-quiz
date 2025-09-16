@@ -1,7 +1,6 @@
 import React, { useState, useRef } from 'react';
 import * as pdfjsLib from 'pdfjs-dist';
 import mammoth from 'mammoth';
-import PdfToWordConverter from './PdfToWordConverter';
 
 // Configurar worker desde jsDelivr (más confiable que cdnjs)
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.js`;
@@ -233,7 +232,6 @@ const FileUploader: React.FC<FileUploaderProps> = ({ onTextExtracted }) => {
         ya que no necesitas subir el archivo completo a la IA.
       </p>
 
-      <PdfToWordConverter onConvertedFileReady={() => {}} />
 
       <div
         className={`file-drop-zone ${dragOver ? 'drag-over' : ''} ${isProcessing ? 'processing' : ''}`}
