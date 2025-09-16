@@ -18,10 +18,10 @@ interface FileUploaderProps {
   onMultipleTextsExtracted: (files: ExtractedFile[]) => void;
 }
 
-const FileUploader: React.FC<FileUploaderProps> = ({ onTextExtracted, onMultipleTextsExtracted }) => {
+const FileUploader: React.FC<FileUploaderProps> = ({ onTextExtracted }) => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [dragOver, setDragOver] = useState(false);
-  const [extractedFiles, setExtractedFiles] = useState<ExtractedFile[]>([]);
+  // const [extractedFiles, setExtractedFiles] = useState<ExtractedFile[]>([]);
   const [currentlyProcessing, setCurrentlyProcessing] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -57,18 +57,14 @@ const FileUploader: React.FC<FileUploaderProps> = ({ onTextExtracted, onMultiple
   };
 
   const extractTextFromRTF = async (file: File): Promise<string> => {
-    // Para archivos RTF, extraer texto básico
     const text = await file.text();
-
-    // Limpiar códigos RTF básicos
     let cleanText = text
-      .replace(/\\rtf1.*?\\fs\d+/g, '') // Remover header RTF
-      .replace(/\\par/g, '\n') // Reemplazar párrafos
-      .replace(/\\[a-z]+\d*/g, '') // Remover comandos RTF
-      .replace(/[{}]/g, '') // Remover llaves
-      .replace(/\s+/g, ' ') // Normalizar espacios
+      .replace(/\\rtf1.*?\\fs\d+/g, '')
+      .replace(/\\par/g, '\n')
+      .replace(/\\[a-z]+\d*/g, '')
+      .replace(/[{}]/g, '')
+      .replace(/\s+/g, ' ')
       .trim();
-
     return cleanText;
   };
 
@@ -145,11 +141,10 @@ const FileUploader: React.FC<FileUploaderProps> = ({ onTextExtracted, onMultiple
       }
 
       if (newExtractedFiles.length > 0) {
-        const updatedFiles = [...extractedFiles, ...newExtractedFiles];
-        setExtractedFiles(updatedFiles);
-        onMultipleTextsExtracted(updatedFiles);
-
-        alert(`✅ ${newExtractedFiles.length} archivo(s) procesado(s) correctamente!\n\n💡 Usa los botones de abajo para copiar textos individuales o concatenar todo.`);
+        // Solo procesar el primer archivo por simplicidad
+        const firstFile = newExtractedFiles[0];
+        onTextExtracted(firstFile.text);
+        alert(`✅ Archivo procesado correctamente!\n\n📄 ${firstFile.name}\n📝 ${firstFile.wordCount} palabras`);
       }
 
     } finally {
@@ -217,10 +212,6 @@ const FileUploader: React.FC<FileUploaderProps> = ({ onTextExtracted, onMultiple
   //   onMultipleTextsExtracted(updatedFiles);
   // };
 
-  const clearAllFiles = () => {
-    setExtractedFiles([]);
-    onMultipleTextsExtracted([]);
-  };
 
   // const handleConvertedFile = (convertedFile: File) => {
   //   // Procesar el archivo Word convertido automáticamente

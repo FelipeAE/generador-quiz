@@ -25,8 +25,7 @@ const PdfToWordConverter: React.FC<PdfToWordConverterProps> = ({ onConvertedFile
         // pdf-lib no tiene extracción de texto nativa, así que usamos un método básico
         // Esto funcionará para PDFs simples con texto seleccionable
         try {
-          const page = pages[i];
-          // const { width, height } = page.getSize();
+          // const page = pages[i];
 
           // Agregar texto básico de la página
           extractedText += `\n--- Página ${i + 1} ---\n`;
@@ -50,27 +49,6 @@ const PdfToWordConverter: React.FC<PdfToWordConverterProps> = ({ onConvertedFile
     }
   };
 
-  // Método básico para extraer texto - limitado pero funcional
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const extractBasicTextFromPage = async (arrayBuffer: ArrayBuffer, pageIndex: number): Promise<string> => {
-    // Para PDFs simples, intentamos extraer texto básico
-    // Esta es una implementación simplificada
-    try {
-      const uint8Array = new Uint8Array(arrayBuffer);
-      const text = new TextDecoder('utf-8').decode(uint8Array);
-
-      // Buscar patrones básicos de texto en PDFs
-      const textMatches = text.match(/\((.*?)\)/g) || [];
-      const extractedStrings = textMatches
-        .map(match => match.slice(1, -1))
-        .filter(str => str.length > 1 && /[a-zA-ZáéíóúÁÉÍÓÚñÑ]/.test(str))
-        .join(' ');
-
-      return extractedStrings || `Contenido de página ${pageIndex + 1}`;
-    } catch {
-      return `Página ${pageIndex + 1} - contenido no disponible`;
-    }
-  };
 
   const createSimpleWordDocument = async (text: string, originalFileName: string): Promise<Blob> => {
     setCurrentStep('Creando documento Word...');
