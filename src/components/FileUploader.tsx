@@ -27,6 +27,8 @@ const FileUploader: React.FC<FileUploaderProps> = ({ onTextExtracted, onMultiple
 
   const maxFileSize = 15 * 1024 * 1024; // 15MB
 
+  // Función no utilizada actualmente, mantenida para futuras mejoras
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const extractTextFromPDF = async (file: File): Promise<string> => {
     try {
       const arrayBuffer = await file.arrayBuffer();
@@ -162,11 +164,11 @@ const FileUploader: React.FC<FileUploaderProps> = ({ onTextExtracted, onMultiple
     }
   };
 
-  const handleFile = (file: File) => {
-    const fileList = new DataTransfer();
-    fileList.items.add(file);
-    handleFiles(fileList.files);
-  };
+  // const handleFile = (file: File) => {
+  //   const fileList = new DataTransfer();
+  //   fileList.items.add(file);
+  //   handleFiles(fileList.files);
+  // };
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();

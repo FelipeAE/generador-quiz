@@ -78,9 +78,6 @@ const PdfToWordConverter: React.FC<PdfToWordConverterProps> = ({ onConvertedFile
       // Crear un documento Word básico usando plantilla mínima
       // Esto es más compatible que la librería docx completa
 
-      const header = `Documento convertido: ${originalFileName}\n\nConvertido automáticamente de PDF a Word\n\n`;
-      const fullText = header + text;
-
       // Crear un archivo de texto enriquecido que Word puede leer
       const rtfContent = `{\\rtf1\\ansi\\deff0 {\\fonttbl {\\f0 Times New Roman;}}
 \\f0\\fs24 Documento convertido: ${originalFileName}\\par
