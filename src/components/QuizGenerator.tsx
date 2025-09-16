@@ -29,7 +29,7 @@ const QuizGenerator: React.FC = () => {
   const [isRandomMode, setIsRandomMode] = useState(false);
   const [isUrlShortening, setIsUrlShortening] = useState(false);
   const [extractedText, setExtractedText] = useState('');
-  const [extractedFiles] = useState<any[]>([]);
+  // const [extractedFiles] = useState<any[]>([]);
   
   // Sistema de URLs con hash + compresión LZ - funciona siempre, sin APIs externas
   
@@ -351,12 +351,6 @@ const QuizGenerator: React.FC = () => {
     setExtractedText(text);
   };
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const handleMultipleTextsExtracted = (files: any[]) => {
-    // setExtractedFiles(files);
-    // Clear single text when we have multiple files
-    setExtractedText('');
-  };
 
   const clearExtractedText = () => {
     setExtractedText('');
@@ -659,7 +653,7 @@ const QuizGenerator: React.FC = () => {
 
       <FileUploader
         onTextExtracted={handleTextExtracted}
-        onMultipleTextsExtracted={handleMultipleTextsExtracted}
+        onMultipleTextsExtracted={() => {}}
       />
 
       {extractedText && (

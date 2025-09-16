@@ -228,6 +228,7 @@ const FileUploader: React.FC<FileUploaderProps> = ({ onTextExtracted, onMultiple
     onMultipleTextsExtracted([]);
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleConvertedFile = (convertedFile: File) => {
     // Procesar el archivo Word convertido automáticamente
     const fileList = new DataTransfer();
@@ -248,7 +249,7 @@ const FileUploader: React.FC<FileUploaderProps> = ({ onTextExtracted, onMultiple
         ya que no necesitas subir el archivo completo a la IA.
       </p>
 
-      <PdfToWordConverter onConvertedFileReady={handleConvertedFile} />
+      <PdfToWordConverter onConvertedFileReady={() => {}} />
 
       <div
         className={`file-drop-zone ${dragOver ? 'drag-over' : ''} ${isProcessing ? 'processing' : ''}`}

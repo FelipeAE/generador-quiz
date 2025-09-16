@@ -51,6 +51,7 @@ const PdfToWordConverter: React.FC<PdfToWordConverterProps> = ({ onConvertedFile
   };
 
   // Método básico para extraer texto - limitado pero funcional
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const extractBasicTextFromPage = async (arrayBuffer: ArrayBuffer, pageIndex: number): Promise<string> => {
     // Para PDFs simples, intentamos extraer texto básico
     // Esta es una implementación simplificada
