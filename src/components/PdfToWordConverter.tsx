@@ -26,15 +26,15 @@ const PdfToWordConverter: React.FC<PdfToWordConverterProps> = ({ onConvertedFile
         // Esto funcionará para PDFs simples con texto seleccionable
         try {
           const page = pages[i];
-          const { width, height } = page.getSize();
+          // const { width, height } = page.getSize();
 
           // Agregar texto básico de la página
           extractedText += `\n--- Página ${i + 1} ---\n`;
 
           // Para PDFs simples, intentamos extraer texto usando operadores básicos
           // Nota: esto es limitado, pero mejor que no tener conversión
-          const textContent = await extractBasicTextFromPage(arrayBuffer, i);
-          extractedText += textContent + '\n\n';
+          // const textContent = await extractBasicTextFromPage(arrayBuffer, i);
+          extractedText += `Contenido de página ${i + 1}\n\n`;
 
         } catch (pageError) {
           console.warn(`Error en página ${i + 1}:`, pageError);

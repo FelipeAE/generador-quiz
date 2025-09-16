@@ -28,33 +28,27 @@ const FileUploader: React.FC<FileUploaderProps> = ({ onTextExtracted, onMultiple
   const maxFileSize = 15 * 1024 * 1024; // 15MB
 
   // Función no utilizada actualmente, mantenida para futuras mejoras
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const extractTextFromPDF = async (file: File): Promise<string> => {
-    try {
-      const arrayBuffer = await file.arrayBuffer();
-
-      // Configuración básica para PDF
-      const pdf = await pdfjsLib.getDocument({
-        data: arrayBuffer
-      }).promise;
-
-      let extractedText = '';
-
-      for (let i = 1; i <= pdf.numPages; i++) {
-        const page = await pdf.getPage(i);
-        const textContent = await page.getTextContent();
-        const pageText = textContent.items
-          .map((item: any) => item.str)
-          .join(' ');
-        extractedText += pageText + '\n\n';
-      }
-
-      return extractedText.trim();
-    } catch (error) {
-      console.error('Error in PDF processing:', error);
-      throw new Error('No se pudo procesar el archivo PDF. Verifica que el archivo no esté corrupto o protegido.');
-    }
-  };
+  // const extractTextFromPDF = async (file: File): Promise<string> => {
+  //   try {
+  //     const arrayBuffer = await file.arrayBuffer();
+  //     const pdf = await pdfjsLib.getDocument({
+  //       data: arrayBuffer
+  //     }).promise;
+  //     let extractedText = '';
+  //     for (let i = 1; i <= pdf.numPages; i++) {
+  //       const page = await pdf.getPage(i);
+  //       const textContent = await page.getTextContent();
+  //       const pageText = textContent.items
+  //         .map((item: any) => item.str)
+  //         .join(' ');
+  //       extractedText += pageText + '\n\n';
+  //     }
+  //     return extractedText.trim();
+  //   } catch (error) {
+  //     console.error('Error in PDF processing:', error);
+  //     throw new Error('No se pudo procesar el archivo PDF. Verifica que el archivo no esté corrupto o protegido.');
+  //   }
+  // };
 
   const extractTextFromWord = async (file: File): Promise<string> => {
     const arrayBuffer = await file.arrayBuffer();
@@ -197,44 +191,43 @@ const FileUploader: React.FC<FileUploaderProps> = ({ onTextExtracted, onMultiple
     }
   };
 
-  const copyIndividualText = (file: ExtractedFile) => {
-    navigator.clipboard.writeText(file.text).then(() => {
-      alert(`📋 Texto de "${file.name}" copiado al portapapeles!\n\n💡 Lleva este texto a tu IA favorita junto con el prompt.`);
-    }).catch(() => {
-      prompt(`📋 Copia este texto de "${file.name}":`, file.text);
-    });
-  };
+  // const copyIndividualText = (file: ExtractedFile) => {
+  //   navigator.clipboard.writeText(file.text).then(() => {
+  //     alert(`📋 Texto de "${file.name}" copiado al portapapeles!\n\n💡 Lleva este texto a tu IA favorita junto con el prompt.`);
+  //   }).catch(() => {
+  //     prompt(`📋 Copia este texto de "${file.name}":`, file.text);
+  //   });
+  // };
 
-  const copyAllTexts = () => {
-    const allText = extractedFiles
-      .map(file => `=== ${file.name} ===\n\n${file.text}`)
-      .join('\n\n---\n\n');
+  // const copyAllTexts = () => {
+  //   const allText = extractedFiles
+  //     .map(file => `=== ${file.name} ===\n\n${file.text}`)
+  //     .join('\n\n---\n\n');
 
-    navigator.clipboard.writeText(allText).then(() => {
-      alert(`📋 Todos los textos concatenados copiados al portapapeles!\n\n📄 ${extractedFiles.length} archivos combinados\n💡 Lleva este texto completo a tu IA favorita.`);
-    }).catch(() => {
-      prompt('📋 Copia todo el texto concatenado:', allText);
-    });
-  };
+  //   navigator.clipboard.writeText(allText).then(() => {
+  //     alert(`📋 Todos los textos concatenados copiados al portapapeles!\n\n📄 ${extractedFiles.length} archivos combinados\n💡 Lleva este texto completo a tu IA favorita.`);
+  //   }).catch(() => {
+  //     prompt('📋 Copia todo el texto concatenado:', allText);
+  //   });
+  // };
 
-  const removeFile = (index: number) => {
-    const updatedFiles = extractedFiles.filter((_, i) => i !== index);
-    setExtractedFiles(updatedFiles);
-    onMultipleTextsExtracted(updatedFiles);
-  };
+  // const removeFile = (index: number) => {
+  //   const updatedFiles = extractedFiles.filter((_, i) => i !== index);
+  //   setExtractedFiles(updatedFiles);
+  //   onMultipleTextsExtracted(updatedFiles);
+  // };
 
   const clearAllFiles = () => {
     setExtractedFiles([]);
     onMultipleTextsExtracted([]);
   };
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const handleConvertedFile = (convertedFile: File) => {
-    // Procesar el archivo Word convertido automáticamente
-    const fileList = new DataTransfer();
-    fileList.items.add(convertedFile);
-    handleFiles(fileList.files);
-  };
+  // const handleConvertedFile = (convertedFile: File) => {
+  //   // Procesar el archivo Word convertido automáticamente
+  //   const fileList = new DataTransfer();
+  //   fileList.items.add(convertedFile);
+  //   handleFiles(fileList.files);
+  // };
 
   const openFileDialog = () => {
     fileInputRef.current?.click();
@@ -287,62 +280,6 @@ const FileUploader: React.FC<FileUploaderProps> = ({ onTextExtracted, onMultiple
         )}
       </div>
 
-      {extractedFiles.length > 0 && (
-        <div className="extracted-files-section">
-          <div className="extracted-files-header">
-            <h4>📚 Archivos procesados ({extractedFiles.length})</h4>
-            <div className="files-actions">
-              <button onClick={copyAllTexts} className="btn-primary">
-                📋 Concatenar y copiar todo
-              </button>
-              <button onClick={clearAllFiles} className="btn-secondary">
-                🗑️ Limpiar todo
-              </button>
-            </div>
-          </div>
-
-          <div className="files-list">
-            {extractedFiles.map((file, index) => (
-              <div key={index} className="file-item">
-                <div className="file-info">
-                  <h5>{file.name}</h5>
-                  <div className="file-stats">
-                    <span>📊 {file.wordCount.toLocaleString()} palabras</span>
-                    <span>📄 {file.size.toLocaleString()} caracteres</span>
-                  </div>
-                </div>
-                <div className="file-actions">
-                  <button
-                    onClick={() => copyIndividualText(file)}
-                    className="btn-primary btn-small"
-                  >
-                    📋 Copiar
-                  </button>
-                  <button
-                    onClick={() => removeFile(index)}
-                    className="btn-danger btn-small"
-                  >
-                    ❌
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <div className="concatenation-preview">
-            <h5>🔗 Vista previa del texto concatenado:</h5>
-            <div className="concatenation-info">
-              <p>
-                <strong>Total:</strong> {extractedFiles.reduce((acc, file) => acc + file.wordCount, 0).toLocaleString()} palabras | {' '}
-                {extractedFiles.reduce((acc, file) => acc + file.size, 0).toLocaleString()} caracteres
-              </p>
-              <p>
-                <strong>Estructura:</strong> Cada archivo estará separado por "==== Nombre del archivo ====" para que la IA pueda identificar las secciones.
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
 
       <div className="file-benefits">
         <h4>💡 ¿Por qué usar esta función?</h4>
