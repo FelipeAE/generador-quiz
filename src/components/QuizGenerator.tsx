@@ -1,11 +1,27 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import FileUploader from './FileUploader';
 import TextExtractor from './TextExtractor';
+import QuizHistory from './QuizHistory';
+import ExamTimer from './ExamTimer';
+import ExamModeConfig from './ExamModeConfig';
+import AdvancedStats from './AdvancedStats';
+import ThemeSelector from './ThemeSelector';
+import {
+  saveQuiz,
+  saveAttempt,
+  updateQuizUsage,
+  getQuizStatistics,
+  saveCurrentQuiz,
+  getCurrentQuiz,
+  clearCurrentQuiz,
+  type SavedQuiz
+} from '../utils/quizStorage';
 
 type QuizQuestion = {
   question: string;
   choices: string[];
   answer: number;
+  explanation?: string;
 };
 
 type QuizData = {
@@ -30,6 +46,22 @@ const QuizGenerator: React.FC = () => {
   const [isUrlShortening, setIsUrlShortening] = useState(false);
   const [extractedText, setExtractedText] = useState('');
   // const [extractedFiles] = useState<any[]>([]);
+
+  // Nuevas funcionalidades
+  const [showHistory, setShowHistory] = useState(false);
+  const [currentQuizId, setCurrentQuizId] = useState<string | null>(null);
+  const [currentQuizName, setCurrentQuizName] = useState<string>('');
+  const [examMode, setExamMode] = useState(false);
+  const [showExamConfig, setShowExamConfig] = useState(false);
+  const [examTimerSeconds, setExamTimerSeconds] = useState(0);
+  const [quizStartTime, setQuizStartTime] = useState<number>(0);
+  const timerRef = useRef<number>(0);
+
+  // Modo de Estudio
+  const [studyMode, setStudyMode] = useState(false);
+  const [showExplanation, setShowExplanation] = useState(false);
+  const [markedQuestions, setMarkedQuestions] = useState<Set<number>>(new Set());
+  const [showThemeSelector, setShowThemeSelector] = useState(false);
   
   // Sistema de URLs con hash + compresión LZ - funciona siempre, sin APIs externas
   
@@ -104,21 +136,50 @@ const QuizGenerator: React.FC = () => {
     }
   };
 
-  // Cargar quiz desde enlace compartido al iniciar
-  React.useEffect(() => {
+  // Cargar quiz desde enlace compartido al iniciar O recuperar autoguardado
+  useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const gistId = urlParams.get('gist');
     const binId = urlParams.get('bin');
     const hash = window.location.hash;
-    
+
     if (gistId) {
       loadQuizFromGist(gistId);
     } else if (binId) {
       loadQuizFromBin(binId);
     } else if (hash.includes('#quiz=')) {
       loadQuizFromHash();
+    } else {
+      // Recuperar quiz autoguardado si existe
+      const savedInput = getCurrentQuiz();
+      if (savedInput && savedInput.length > 0) {
+        setJsonInput(savedInput);
+      }
     }
+
+    // Cargar tema guardado
+    const savedTheme = localStorage.getItem('app-theme') || 'light';
+    document.documentElement.setAttribute('data-theme', savedTheme);
   }, []);
+
+  // Autoguardado del JSON input cada 3 segundos
+  useEffect(() => {
+    if (jsonInput && jsonInput.length > 10 && !quizData) {
+      const timeoutId = setTimeout(() => {
+        saveCurrentQuiz(jsonInput);
+      }, 3000);
+
+      return () => clearTimeout(timeoutId);
+    }
+  }, [jsonInput, quizData]);
+
+  // Iniciar tracking de tiempo cuando comienza el quiz
+  useEffect(() => {
+    if (quizData && !showResults) {
+      setQuizStartTime(Date.now());
+      timerRef.current = Date.now();
+    }
+  }, [quizData, showResults]);
 
   const loadQuizFromGist = async (gistId: string) => {
     try {
@@ -258,7 +319,7 @@ const QuizGenerator: React.FC = () => {
   }
 ]`;
 
-  const generateQuizFromData = (parsedData: QuizQuestion[]) => {
+  const generateQuizFromData = (parsedData: QuizQuestion[], quizName?: string) => {
     if (!Array.isArray(parsedData)) {
       throw new Error('El JSON debe ser un array de preguntas');
     }
@@ -267,9 +328,9 @@ const QuizGenerator: React.FC = () => {
       const isMultipleChoice = question.choices.length === 4;
       const isTrueFalse = question.choices.length === 2;
       const maxAnswer = question.choices.length - 1;
-      
-      if (!question.question || !Array.isArray(question.choices) || 
-          (!isMultipleChoice && !isTrueFalse) || 
+
+      if (!question.question || !Array.isArray(question.choices) ||
+          (!isMultipleChoice && !isTrueFalse) ||
           typeof question.answer !== 'number' ||
           question.answer < 0 || question.answer > maxAnswer) {
         throw new Error(`Pregunta ${index + 1} debe tener 2 opciones (V/F) o 4 opciones (selección múltiple)`);
@@ -281,11 +342,21 @@ const QuizGenerator: React.FC = () => {
       questions = [...parsedData].sort(() => Math.random() - 0.5);
     }
 
+    // Guardar quiz en localStorage
+    const name = quizName || `Quiz ${new Date().toLocaleDateString()}`;
+    const savedQuiz = saveQuiz(name, { questions });
+    setCurrentQuizId(savedQuiz.id);
+    setCurrentQuizName(savedQuiz.name);
+
     setQuizData({ questions });
     setUserAnswers(new Array(questions.length).fill(null));
     setCurrentQuestionIndex(0);
     setShowResults(false);
     setQuizResult(null);
+    setQuizStartTime(Date.now());
+
+    // Limpiar autoguardado
+    clearCurrentQuiz();
   };
 
   const generateQuiz = () => {
@@ -301,17 +372,37 @@ const QuizGenerator: React.FC = () => {
     const newAnswers = [...userAnswers];
     newAnswers[currentQuestionIndex] = answerIndex;
     setUserAnswers(newAnswers);
+
+    // En modo estudio, mostrar explicación inmediatamente después de responder
+    if (studyMode) {
+      setShowExplanation(true);
+    }
+  };
+
+  const toggleMarkQuestion = () => {
+    const newMarked = new Set(markedQuestions);
+    if (newMarked.has(currentQuestionIndex)) {
+      newMarked.delete(currentQuestionIndex);
+    } else {
+      newMarked.add(currentQuestionIndex);
+    }
+    setMarkedQuestions(newMarked);
   };
 
   const nextQuestion = () => {
     if (currentQuestionIndex < (quizData?.questions.length || 0) - 1) {
       setCurrentQuestionIndex(currentQuestionIndex + 1);
+      setShowExplanation(false); // Reset explanation for next question
     }
   };
 
   const prevQuestion = () => {
+    // En modo examen, no se puede volver atrás
+    if (examMode) return;
+
     if (currentQuestionIndex > 0) {
       setCurrentQuestionIndex(currentQuestionIndex - 1);
+      setShowExplanation(false); // Reset explanation
     }
   };
 
@@ -328,13 +419,30 @@ const QuizGenerator: React.FC = () => {
     const total = quizData.questions.length;
     const percentage = Math.round((score / total) * 100);
 
-    setQuizResult({
+    const timeSpent = Math.floor((Date.now() - quizStartTime) / 1000);
+
+    const result: QuizResult = {
       score,
       total,
       percentage,
       answers: userAnswers
-    });
+    };
+
+    setQuizResult(result);
     setShowResults(true);
+
+    // Guardar intento en localStorage
+    if (currentQuizId) {
+      saveAttempt(
+        currentQuizId,
+        currentQuizName,
+        result,
+        timeSpent,
+        examMode,
+        examMode ? examTimerSeconds / 60 : undefined
+      );
+      updateQuizUsage(currentQuizId, percentage);
+    }
   };
 
   const resetQuiz = () => {
@@ -345,6 +453,87 @@ const QuizGenerator: React.FC = () => {
     setQuizResult(null);
     setJsonInput('');
     setExtractedText('');
+    setExamMode(false);
+    setExamTimerSeconds(0);
+    setCurrentQuizId(null);
+    setCurrentQuizName('');
+    setStudyMode(false);
+    setShowExplanation(false);
+    setMarkedQuestions(new Set());
+  };
+
+  const retryIncorrectQuestions = () => {
+    if (!quizData || !quizResult) return;
+
+    // Filtrar solo preguntas incorrectas
+    const incorrectQuestions = quizData.questions.filter((q, index) => {
+      return userAnswers[index] !== q.answer;
+    });
+
+    if (incorrectQuestions.length === 0) {
+      alert('¡No hay preguntas incorrectas! 🎉');
+      return;
+    }
+
+    // Crear nuevo quiz solo con preguntas incorrectas
+    setQuizData({ questions: incorrectQuestions });
+    setUserAnswers(new Array(incorrectQuestions.length).fill(null));
+    setCurrentQuestionIndex(0);
+    setShowResults(false);
+    setQuizResult(null);
+    setShowExplanation(false);
+    setMarkedQuestions(new Set());
+    setQuizStartTime(Date.now());
+  };
+
+  const retryMarkedQuestions = () => {
+    if (!quizData) return;
+
+    if (markedQuestions.size === 0) {
+      alert('No has marcado ninguna pregunta para revisar');
+      return;
+    }
+
+    // Filtrar solo preguntas marcadas
+    const marked = Array.from(markedQuestions).sort((a, b) => a - b);
+    const markedQuestionsList = marked.map(index => quizData.questions[index]);
+
+    setQuizData({ questions: markedQuestionsList });
+    setUserAnswers(new Array(markedQuestionsList.length).fill(null));
+    setCurrentQuestionIndex(0);
+    setShowResults(false);
+    setQuizResult(null);
+    setShowExplanation(false);
+    setMarkedQuestions(new Set());
+    setQuizStartTime(Date.now());
+  };
+
+  const handleLoadQuizFromHistory = (savedQuiz: SavedQuiz) => {
+    setJsonInput(JSON.stringify(savedQuiz.data.questions, null, 2));
+    setCurrentQuizId(savedQuiz.id);
+    setCurrentQuizName(savedQuiz.name);
+  };
+
+  const startExamMode = (timerMinutes: number) => {
+    setExamMode(true);
+    setExamTimerSeconds(timerMinutes * 60);
+    setShowExamConfig(false);
+
+    if (!quizData) {
+      try {
+        const parsedData: QuizQuestion[] = JSON.parse(jsonInput);
+        generateQuizFromData(parsedData);
+      } catch (error) {
+        alert(`Error al procesar el JSON: ${(error as Error).message}`);
+        setExamMode(false);
+        setExamTimerSeconds(0);
+      }
+    }
+  };
+
+  const handleTimeUp = () => {
+    alert('⏰ ¡Se acabó el tiempo! El examen se enviará automáticamente.');
+    finishQuiz();
   };
 
   const handleTextExtracted = (text: string) => {
@@ -540,15 +729,32 @@ const QuizGenerator: React.FC = () => {
 
 
   if (showResults && quizResult && quizData) {
+    const timeSpent = Math.floor((Date.now() - quizStartTime) / 1000);
+    const stats = currentQuizId ? getQuizStatistics(currentQuizId) : null;
+
     return (
       <div className="quiz-container">
         <h1>¡Resultados del Quiz!</h1>
+        {examMode && (
+          <div className="exam-badge">
+            🎓 Modo Examen {examTimerSeconds ? `- ${examTimerSeconds / 60} min` : ''}
+          </div>
+        )}
         <div className="results-summary">
           <h2>Puntuación: {quizResult.score}/{quizResult.total} ({quizResult.percentage}%)</h2>
           <div className={`grade ${quizResult.percentage >= 70 ? 'pass' : 'fail'}`}>
             {quizResult.percentage >= 70 ? '¡Aprobado!' : 'Necesitas mejorar'}
           </div>
         </div>
+
+        <AdvancedStats
+          result={quizResult}
+          quizData={quizData}
+          timeSpent={timeSpent}
+          previousAttempts={stats ? stats.totalAttempts - 1 : undefined}
+          averageScore={stats?.averageScore}
+          trend={stats?.trend}
+        />
 
         <div className="results-detail">
           <h3>Respuestas detalladas:</h3>
@@ -566,6 +772,11 @@ const QuizGenerator: React.FC = () => {
         </div>
 
         <div className="results-actions">
+          {quizResult.score < quizResult.total && (
+            <button onClick={retryIncorrectQuestions} className="btn-warning">
+              🔁 Repetir Incorrectas ({quizResult.total - quizResult.score})
+            </button>
+          )}
           <button onClick={shareResults} className="btn-secondary">
             📱 Compartir Resultados
           </button>
@@ -583,34 +794,95 @@ const QuizGenerator: React.FC = () => {
 
     return (
       <div className="quiz-container">
+        {examMode && examTimerSeconds > 0 && (
+          <ExamTimer
+            totalSeconds={examTimerSeconds}
+            onTimeUp={handleTimeUp}
+            isPaused={false}
+          />
+        )}
+
         <div className="quiz-header">
           <h1>Quiz Personalizado</h1>
+          {examMode && (
+            <div className="exam-mode-indicator">
+              🎓 Modo Examen - No puedes volver atrás
+            </div>
+          )}
+          {studyMode && (
+            <div className="study-mode-indicator">
+              📚 Modo Estudio - Aprende mientras practicas
+            </div>
+          )}
           <div className="progress-bar">
             <div className="progress-fill" style={{ width: `${progress}%` }}></div>
           </div>
           <p>Pregunta {currentQuestionIndex + 1} de {quizData.questions.length}</p>
+          {markedQuestions.size > 0 && (
+            <p className="marked-counter">🔖 {markedQuestions.size} marcadas para revisar</p>
+          )}
         </div>
 
         <div className="question-container">
-          <h2>{currentQuestion.question}</h2>
+          <div className="question-header">
+            <h2>{currentQuestion.question}</h2>
+            {studyMode && (
+              <button
+                className={`btn-mark ${markedQuestions.has(currentQuestionIndex) ? 'marked' : ''}`}
+                onClick={toggleMarkQuestion}
+              >
+                {markedQuestions.has(currentQuestionIndex) ? '🔖 Marcada' : '🔖 Marcar'}
+              </button>
+            )}
+          </div>
+
           <div className={`choices ${currentQuestion.choices.length === 2 ? 'true-false' : ''}`}>
             {currentQuestion.choices.map((choice, index) => (
               <button
                 key={index}
-                className={`choice ${userAnswers[currentQuestionIndex] === index ? 'selected' : ''}`}
+                className={`choice ${userAnswers[currentQuestionIndex] === index ? 'selected' : ''} ${
+                  studyMode && showExplanation && index === currentQuestion.answer ? 'correct-answer' : ''
+                } ${
+                  studyMode && showExplanation && userAnswers[currentQuestionIndex] === index && index !== currentQuestion.answer ? 'wrong-answer' : ''
+                }`}
                 onClick={() => selectAnswer(index)}
               >
                 {choice}
+                {studyMode && showExplanation && index === currentQuestion.answer && ' ✓'}
+                {studyMode && showExplanation && userAnswers[currentQuestionIndex] === index && index !== currentQuestion.answer && ' ✗'}
               </button>
             ))}
           </div>
+
+          {studyMode && showExplanation && userAnswers[currentQuestionIndex] !== null && (
+            <div className={`explanation-box ${userAnswers[currentQuestionIndex] === currentQuestion.answer ? 'correct' : 'incorrect'}`}>
+              <div className="explanation-header">
+                {userAnswers[currentQuestionIndex] === currentQuestion.answer ? (
+                  <span className="explanation-result correct">✅ ¡Correcto!</span>
+                ) : (
+                  <span className="explanation-result incorrect">❌ Incorrecto</span>
+                )}
+              </div>
+              {currentQuestion.explanation && (
+                <div className="explanation-text">
+                  <strong>Explicación:</strong> {currentQuestion.explanation}
+                </div>
+              )}
+              {!currentQuestion.explanation && (
+                <div className="explanation-text">
+                  <strong>Respuesta correcta:</strong> {currentQuestion.choices[currentQuestion.answer]}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="quiz-navigation">
-          <button 
-            onClick={prevQuestion} 
-            disabled={currentQuestionIndex === 0}
+          <button
+            onClick={prevQuestion}
+            disabled={currentQuestionIndex === 0 || examMode}
             className="btn-secondary"
+            title={examMode ? 'No puedes volver atrás en modo examen' : ''}
           >
             ← Anterior
           </button>
@@ -627,8 +899,13 @@ const QuizGenerator: React.FC = () => {
         </div>
 
         <div className="quiz-actions">
-          <button 
-            onClick={shareQuizOnline} 
+          {studyMode && markedQuestions.size > 0 && (
+            <button onClick={retryMarkedQuestions} className="btn-warning">
+              🔖 Revisar Marcadas ({markedQuestions.size})
+            </button>
+          )}
+          <button
+            onClick={shareQuizOnline}
             className="btn-primary btn-share-online"
             disabled={isUrlShortening}
           >
@@ -650,6 +927,49 @@ const QuizGenerator: React.FC = () => {
     <div className="quiz-container">
       <h1>¡Crea tu Quiz Personalizado!</h1>
       <p>Sube un documento PDF/Word o pega el JSON con tus preguntas para generar tu cuestionario.</p>
+
+      <div className="top-actions">
+        <button
+          className="btn-theme"
+          onClick={() => setShowThemeSelector(true)}
+        >
+          🎨 Temas
+        </button>
+        <button
+          className="btn-history"
+          onClick={() => setShowHistory(true)}
+        >
+          📚 Ver Historial
+        </button>
+      </div>
+
+      {showHistory && (
+        <QuizHistory
+          onLoadQuiz={handleLoadQuizFromHistory}
+          onClose={() => setShowHistory(false)}
+        />
+      )}
+
+      {showThemeSelector && (
+        <ThemeSelector
+          onClose={() => setShowThemeSelector(false)}
+        />
+      )}
+
+      {showExamConfig && jsonInput && (
+        <ExamModeConfig
+          onStart={startExamMode}
+          onCancel={() => setShowExamConfig(false)}
+          questionCount={(() => {
+            try {
+              const parsed = JSON.parse(jsonInput);
+              return Array.isArray(parsed) ? parsed.length : 0;
+            } catch {
+              return 0;
+            }
+          })()}
+        />
+      )}
 
       <FileUploader
         onTextExtracted={handleTextExtracted}
@@ -741,10 +1061,66 @@ const QuizGenerator: React.FC = () => {
         </button>
       </div>
 
+      <div className="mode-selector">
+        <h3>Elige el modo de quiz:</h3>
+        <div className="mode-options">
+          <label className="mode-option">
+            <input
+              type="radio"
+              name="quiz-mode"
+              value="normal"
+              checked={!studyMode && !examMode}
+              onChange={() => {
+                setStudyMode(false);
+                setExamMode(false);
+              }}
+            />
+            <div className="mode-card">
+              <div className="mode-icon">🎯</div>
+              <div className="mode-title">Normal</div>
+              <div className="mode-description">Modo clásico de quiz</div>
+            </div>
+          </label>
+
+          <label className="mode-option">
+            <input
+              type="radio"
+              name="quiz-mode"
+              value="study"
+              checked={studyMode}
+              onChange={() => {
+                setStudyMode(true);
+                setExamMode(false);
+              }}
+            />
+            <div className="mode-card">
+              <div className="mode-icon">📚</div>
+              <div className="mode-title">Estudio</div>
+              <div className="mode-description">Aprende con explicaciones inmediatas</div>
+            </div>
+          </label>
+        </div>
+      </div>
+
       <div className="actions">
         <button onClick={generateQuiz} className="btn-generate">
           🪄 Generar Cuestionario
         </button>
+        {jsonInput && jsonInput.length > 50 && !studyMode && (
+          <button
+            onClick={() => {
+              try {
+                JSON.parse(jsonInput);
+                setShowExamConfig(true);
+              } catch (error) {
+                alert('Por favor, verifica que el JSON sea válido antes de iniciar el modo examen');
+              }
+            }}
+            className="btn-exam-mode"
+          >
+            🎓 Modo Examen
+          </button>
+        )}
       </div>
     </div>
   );
